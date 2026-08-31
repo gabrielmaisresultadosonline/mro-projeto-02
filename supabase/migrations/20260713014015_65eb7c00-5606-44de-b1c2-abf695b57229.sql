@@ -1,1 +1,0 @@
-UPDATE public.salaobel_settings SET aula_data = '16/07';

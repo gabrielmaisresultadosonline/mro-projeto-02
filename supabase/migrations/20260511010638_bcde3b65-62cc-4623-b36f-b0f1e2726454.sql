@@ -1,1 +1,0 @@
-ALTER TABLE public.crm_statuses ADD COLUMN IF NOT EXISTS is_starred BOOLEAN DEFAULT false;

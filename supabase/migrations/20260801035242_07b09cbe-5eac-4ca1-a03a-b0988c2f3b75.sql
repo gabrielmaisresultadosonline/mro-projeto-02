@@ -1,1 +1,0 @@
-ALTER TABLE public.mktcc_projects ADD COLUMN IF NOT EXISTS drive_url TEXT DEFAULT '';

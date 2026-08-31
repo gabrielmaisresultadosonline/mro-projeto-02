@@ -1,1 +1,0 @@
-UPDATE public.delivery_settings SET preco = 10;

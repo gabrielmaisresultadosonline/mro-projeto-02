@@ -1,1 +1,0 @@
-ALTER TABLE public.prompts_mro_users ADD COLUMN IF NOT EXISTS phone text;

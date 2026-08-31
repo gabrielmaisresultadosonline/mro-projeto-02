@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "e7f5d571-d530-41a8-ba9a-43cb2e8bf78a",
-  "project_id": "d87f8e30-df83-4ce7-ae4a-4154e685c5ea",
-  "url": "/__l5e/assets-v1/e7f5d571-d530-41a8-ba9a-43cb2e8bf78a/vila-mirim.png",
-  "r2_key": "a/v1/d87f8e30-df83-4ce7-ae4a-4154e685c5ea/e7f5d571-d530-41a8-ba9a-43cb2e8bf78a/vila-mirim.png",
-  "original_filename": "vila-mirim.png",
-  "size": 1389284,
   "content_type": "image/png",
-  "created_at": "2026-07-08T18:38:26Z"
+  "created_at": "2026-07-08T18:38:26Z",
+  "original_filename": "vila-mirim.png",
+  "project_id": "47162898-331d-4cc6-9de9-afc3215e8ecd",
+  "r2_key": "a/v1/47162898-331d-4cc6-9de9-afc3215e8ecd/e7f5d571-d530-41a8-ba9a-43cb2e8bf78a/vila-mirim.png",
+  "size": 1389284,
+  "url": "/__l5e/assets-v1/e7f5d571-d530-41a8-ba9a-43cb2e8bf78a/vila-mirim.png",
+  "version": 1
 }

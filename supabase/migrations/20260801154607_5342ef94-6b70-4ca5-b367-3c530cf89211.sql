@@ -1,1 +1,0 @@
-ALTER TABLE public.mktcc_posts ADD COLUMN IF NOT EXISTS poster_url text NOT NULL DEFAULT '';

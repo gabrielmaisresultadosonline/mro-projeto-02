@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "a0efe220-ea74-4ee7-be14-2c092a04fe18",
-  "project_id": "d87f8e30-df83-4ce7-ae4a-4154e685c5ea",
-  "url": "/__l5e/assets-v1/a0efe220-ea74-4ee7-be14-2c092a04fe18/mro-ig.png",
-  "r2_key": "a/v1/d87f8e30-df83-4ce7-ae4a-4154e685c5ea/a0efe220-ea74-4ee7-be14-2c092a04fe18/mro-ig.png",
-  "original_filename": "mro-ig.png",
-  "size": 1781331,
   "content_type": "image/png",
-  "created_at": "2026-07-08T18:39:03Z"
+  "created_at": "2026-07-08T18:39:03Z",
+  "original_filename": "mro-ig.png",
+  "project_id": "47162898-331d-4cc6-9de9-afc3215e8ecd",
+  "r2_key": "a/v1/47162898-331d-4cc6-9de9-afc3215e8ecd/a0efe220-ea74-4ee7-be14-2c092a04fe18/mro-ig.png",
+  "size": 1781331,
+  "url": "/__l5e/assets-v1/a0efe220-ea74-4ee7-be14-2c092a04fe18/mro-ig.png",
+  "version": 1
 }

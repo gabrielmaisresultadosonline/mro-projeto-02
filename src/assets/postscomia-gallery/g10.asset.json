@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "e7d969a9-e9dd-4e30-b857-b12f5b0ef288",
-  "project_id": "d87f8e30-df83-4ce7-ae4a-4154e685c5ea",
-  "url": "/__l5e/assets-v1/e7d969a9-e9dd-4e30-b857-b12f5b0ef288/gluteo-max.png",
-  "r2_key": "a/v1/d87f8e30-df83-4ce7-ae4a-4154e685c5ea/e7d969a9-e9dd-4e30-b857-b12f5b0ef288/gluteo-max.png",
-  "original_filename": "gluteo-max.png",
-  "size": 2737408,
   "content_type": "image/png",
-  "created_at": "2026-07-08T18:39:29Z"
+  "created_at": "2026-07-08T18:39:29Z",
+  "original_filename": "gluteo-max.png",
+  "project_id": "47162898-331d-4cc6-9de9-afc3215e8ecd",
+  "r2_key": "a/v1/47162898-331d-4cc6-9de9-afc3215e8ecd/e7d969a9-e9dd-4e30-b857-b12f5b0ef288/gluteo-max.png",
+  "size": 2737408,
+  "url": "/__l5e/assets-v1/e7d969a9-e9dd-4e30-b857-b12f5b0ef288/gluteo-max.png",
+  "version": 1
 }

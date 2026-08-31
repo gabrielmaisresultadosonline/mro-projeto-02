@@ -1,1 +1,0 @@
-ALTER TABLE public.zapi_flow_steps ADD COLUMN IF NOT EXISTS button_actions jsonb DEFAULT '[]'::jsonb;

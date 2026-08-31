@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "03e1815d-33b6-4cda-8b85-122ea32c475e",
-  "project_id": "d87f8e30-df83-4ce7-ae4a-4154e685c5ea",
-  "url": "/__l5e/assets-v1/03e1815d-33b6-4cda-8b85-122ea32c475e/conexao-fit.png",
-  "r2_key": "a/v1/d87f8e30-df83-4ce7-ae4a-4154e685c5ea/03e1815d-33b6-4cda-8b85-122ea32c475e/conexao-fit.png",
-  "original_filename": "conexao-fit.png",
-  "size": 1603948,
   "content_type": "image/png",
-  "created_at": "2026-07-08T18:38:58Z"
+  "created_at": "2026-07-08T18:38:58Z",
+  "original_filename": "conexao-fit.png",
+  "project_id": "47162898-331d-4cc6-9de9-afc3215e8ecd",
+  "r2_key": "a/v1/47162898-331d-4cc6-9de9-afc3215e8ecd/03e1815d-33b6-4cda-8b85-122ea32c475e/conexao-fit.png",
+  "size": 1603948,
+  "url": "/__l5e/assets-v1/03e1815d-33b6-4cda-8b85-122ea32c475e/conexao-fit.png",
+  "version": 1
 }

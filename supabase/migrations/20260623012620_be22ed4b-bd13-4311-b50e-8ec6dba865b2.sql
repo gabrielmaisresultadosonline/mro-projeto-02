@@ -1,1 +1,0 @@
-ALTER TABLE public.renda_extrass_leads ADD COLUMN IF NOT EXISTS access_liberated boolean NOT NULL DEFAULT false;

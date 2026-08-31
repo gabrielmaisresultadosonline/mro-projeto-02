@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "aeece188-7449-44b0-bd34-1c2176addffa",
-  "project_id": "d87f8e30-df83-4ce7-ae4a-4154e685c5ea",
-  "url": "/__l5e/assets-v1/aeece188-7449-44b0-bd34-1c2176addffa/salaobel-hero.png",
-  "r2_key": "a/v1/d87f8e30-df83-4ce7-ae4a-4154e685c5ea/aeece188-7449-44b0-bd34-1c2176addffa/salaobel-hero.png",
-  "original_filename": "salaobel-hero.png",
-  "size": 1638453,
   "content_type": "image/png",
-  "created_at": "2026-07-13T02:21:38Z"
+  "created_at": "2026-07-13T02:21:38Z",
+  "original_filename": "salaobel-hero.png",
+  "project_id": "47162898-331d-4cc6-9de9-afc3215e8ecd",
+  "r2_key": "a/v1/47162898-331d-4cc6-9de9-afc3215e8ecd/aeece188-7449-44b0-bd34-1c2176addffa/salaobel-hero.png",
+  "size": 1638453,
+  "url": "/__l5e/assets-v1/aeece188-7449-44b0-bd34-1c2176addffa/salaobel-hero.png",
+  "version": 1
 }

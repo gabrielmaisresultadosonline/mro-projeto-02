@@ -1,1 +1,0 @@
-ALTER TABLE public.localvpp_leads ADD COLUMN IF NOT EXISTS empresa TEXT, ADD COLUMN IF NOT EXISTS objetivo TEXT;

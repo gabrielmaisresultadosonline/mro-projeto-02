@@ -1,1 +1,0 @@
-ALTER TABLE public.rendasaovivo_settings ADD COLUMN IF NOT EXISTS hero_video_url TEXT DEFAULT '' NOT NULL, ADD COLUMN IF NOT EXISTS hero_video_hls_url TEXT DEFAULT '' NOT NULL;

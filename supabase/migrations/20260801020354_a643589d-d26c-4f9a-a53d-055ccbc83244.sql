@@ -1,8 +1,0 @@
-ALTER TABLE public.mktcc_posts
-  ADD COLUMN IF NOT EXISTS is_published BOOLEAN NOT NULL DEFAULT true,
-  ADD COLUMN IF NOT EXISTS aspect_ratio TEXT NOT NULL DEFAULT '4/5';
-
-ALTER TABLE public.mktcc_projects
-  ADD COLUMN IF NOT EXISTS before_instagram_urls TEXT[] NOT NULL DEFAULT '{}',
-  ADD COLUMN IF NOT EXISTS before_facebook_urls TEXT[] NOT NULL DEFAULT '{}',
-  ADD COLUMN IF NOT EXISTS before_note TEXT NOT NULL DEFAULT '';

@@ -1,1 +1,0 @@
-CREATE POLICY "Anyone can manage cover images" ON storage.objects FOR ALL TO public USING (bucket_id = 'assets' AND (storage.foldername(name))[1] = 'covers') WITH CHECK (bucket_id = 'assets' AND (storage.foldername(name))[1] = 'covers');

@@ -1,1 +1,0 @@
-ALTER TABLE public.zapi_contacts ADD COLUMN IF NOT EXISTS is_group boolean DEFAULT false;

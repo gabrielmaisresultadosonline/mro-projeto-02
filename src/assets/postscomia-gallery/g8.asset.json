@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "25b95be5-e996-468c-a544-12704222b360",
-  "project_id": "d87f8e30-df83-4ce7-ae4a-4154e685c5ea",
-  "url": "/__l5e/assets-v1/25b95be5-e996-468c-a544-12704222b360/otimiza-95.png",
-  "r2_key": "a/v1/d87f8e30-df83-4ce7-ae4a-4154e685c5ea/25b95be5-e996-468c-a544-12704222b360/otimiza-95.png",
-  "original_filename": "otimiza-95.png",
-  "size": 2145634,
   "content_type": "image/png",
-  "created_at": "2026-07-08T18:39:18Z"
+  "created_at": "2026-07-08T18:39:18Z",
+  "original_filename": "otimiza-95.png",
+  "project_id": "47162898-331d-4cc6-9de9-afc3215e8ecd",
+  "r2_key": "a/v1/47162898-331d-4cc6-9de9-afc3215e8ecd/25b95be5-e996-468c-a544-12704222b360/otimiza-95.png",
+  "size": 2145634,
+  "url": "/__l5e/assets-v1/25b95be5-e996-468c-a544-12704222b360/otimiza-95.png",
+  "version": 1
 }

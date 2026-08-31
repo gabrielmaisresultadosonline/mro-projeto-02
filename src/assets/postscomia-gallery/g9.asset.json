@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "77291f29-9130-4a0b-821b-1cb2e3a82ad9",
-  "project_id": "d87f8e30-df83-4ce7-ae4a-4154e685c5ea",
-  "url": "/__l5e/assets-v1/77291f29-9130-4a0b-821b-1cb2e3a82ad9/economize-30.png",
-  "r2_key": "a/v1/d87f8e30-df83-4ce7-ae4a-4154e685c5ea/77291f29-9130-4a0b-821b-1cb2e3a82ad9/economize-30.png",
-  "original_filename": "economize-30.png",
-  "size": 1342689,
   "content_type": "image/png",
-  "created_at": "2026-07-08T18:39:25Z"
+  "created_at": "2026-07-08T18:39:25Z",
+  "original_filename": "economize-30.png",
+  "project_id": "47162898-331d-4cc6-9de9-afc3215e8ecd",
+  "r2_key": "a/v1/47162898-331d-4cc6-9de9-afc3215e8ecd/77291f29-9130-4a0b-821b-1cb2e3a82ad9/economize-30.png",
+  "size": 1342689,
+  "url": "/__l5e/assets-v1/77291f29-9130-4a0b-821b-1cb2e3a82ad9/economize-30.png",
+  "version": 1
 }

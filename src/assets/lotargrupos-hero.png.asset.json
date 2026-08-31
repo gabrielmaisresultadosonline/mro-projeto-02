@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "cfe0642b-e9ee-44d1-a1b9-bca7488895f9",
-  "project_id": "d87f8e30-df83-4ce7-ae4a-4154e685c5ea",
-  "url": "/__l5e/assets-v1/cfe0642b-e9ee-44d1-a1b9-bca7488895f9/lotargrupos-hero.png",
-  "r2_key": "a/v1/d87f8e30-df83-4ce7-ae4a-4154e685c5ea/cfe0642b-e9ee-44d1-a1b9-bca7488895f9/lotargrupos-hero.png",
-  "original_filename": "lotargrupos-hero.png",
-  "size": 1841775,
   "content_type": "image/png",
-  "created_at": "2026-08-15T02:01:20Z"
+  "created_at": "2026-08-15T02:01:20Z",
+  "original_filename": "lotargrupos-hero.png",
+  "project_id": "47162898-331d-4cc6-9de9-afc3215e8ecd",
+  "r2_key": "a/v1/47162898-331d-4cc6-9de9-afc3215e8ecd/cfe0642b-e9ee-44d1-a1b9-bca7488895f9/lotargrupos-hero.png",
+  "size": 1841775,
+  "url": "/__l5e/assets-v1/cfe0642b-e9ee-44d1-a1b9-bca7488895f9/lotargrupos-hero.png",
+  "version": 1
 }

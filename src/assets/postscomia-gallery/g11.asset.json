@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "bd1801bd-7ef2-4856-8c1e-91f49d5bae25",
-  "project_id": "d87f8e30-df83-4ce7-ae4a-4154e685c5ea",
-  "url": "/__l5e/assets-v1/bd1801bd-7ef2-4856-8c1e-91f49d5bae25/top-acai-logo.png",
-  "r2_key": "a/v1/d87f8e30-df83-4ce7-ae4a-4154e685c5ea/bd1801bd-7ef2-4856-8c1e-91f49d5bae25/top-acai-logo.png",
-  "original_filename": "top-acai-logo.png",
-  "size": 1417980,
   "content_type": "image/png",
-  "created_at": "2026-07-08T18:43:28Z"
+  "created_at": "2026-07-08T18:43:28Z",
+  "original_filename": "top-acai-logo.png",
+  "project_id": "47162898-331d-4cc6-9de9-afc3215e8ecd",
+  "r2_key": "a/v1/47162898-331d-4cc6-9de9-afc3215e8ecd/bd1801bd-7ef2-4856-8c1e-91f49d5bae25/top-acai-logo.png",
+  "size": 1417980,
+  "url": "/__l5e/assets-v1/bd1801bd-7ef2-4856-8c1e-91f49d5bae25/top-acai-logo.png",
+  "version": 1
 }

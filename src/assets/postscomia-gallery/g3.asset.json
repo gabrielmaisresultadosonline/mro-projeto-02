@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "36676ea9-f825-435e-b682-1ea850d05a80",
-  "project_id": "d87f8e30-df83-4ce7-ae4a-4154e685c5ea",
-  "url": "/__l5e/assets-v1/36676ea9-f825-435e-b682-1ea850d05a80/bm-energia-2.png",
-  "r2_key": "a/v1/d87f8e30-df83-4ce7-ae4a-4154e685c5ea/36676ea9-f825-435e-b682-1ea850d05a80/bm-energia-2.png",
-  "original_filename": "bm-energia-2.png",
-  "size": 1548023,
   "content_type": "image/png",
-  "created_at": "2026-07-08T18:38:31Z"
+  "created_at": "2026-07-08T18:38:31Z",
+  "original_filename": "bm-energia-2.png",
+  "project_id": "47162898-331d-4cc6-9de9-afc3215e8ecd",
+  "r2_key": "a/v1/47162898-331d-4cc6-9de9-afc3215e8ecd/36676ea9-f825-435e-b682-1ea850d05a80/bm-energia-2.png",
+  "size": 1548023,
+  "url": "/__l5e/assets-v1/36676ea9-f825-435e-b682-1ea850d05a80/bm-energia-2.png",
+  "version": 1
 }

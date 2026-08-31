@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "dea2a877-67a4-4c46-a99f-add972034142",
-  "project_id": "d87f8e30-df83-4ce7-ae4a-4154e685c5ea",
-  "url": "/__l5e/assets-v1/dea2a877-67a4-4c46-a99f-add972034142/otimiza-cascavel.png",
-  "r2_key": "a/v1/d87f8e30-df83-4ce7-ae4a-4154e685c5ea/dea2a877-67a4-4c46-a99f-add972034142/otimiza-cascavel.png",
-  "original_filename": "otimiza-cascavel.png",
-  "size": 1913720,
   "content_type": "image/png",
-  "created_at": "2026-07-08T18:39:09Z"
+  "created_at": "2026-07-08T18:39:09Z",
+  "original_filename": "otimiza-cascavel.png",
+  "project_id": "47162898-331d-4cc6-9de9-afc3215e8ecd",
+  "r2_key": "a/v1/47162898-331d-4cc6-9de9-afc3215e8ecd/dea2a877-67a4-4c46-a99f-add972034142/otimiza-cascavel.png",
+  "size": 1913720,
+  "url": "/__l5e/assets-v1/dea2a877-67a4-4c46-a99f-add972034142/otimiza-cascavel.png",
+  "version": 1
 }

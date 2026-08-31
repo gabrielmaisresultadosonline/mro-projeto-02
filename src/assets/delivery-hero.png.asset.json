@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "dd2b13db-3b0b-4322-9e07-1a09a4554964",
-  "project_id": "d87f8e30-df83-4ce7-ae4a-4154e685c5ea",
-  "url": "/__l5e/assets-v1/dd2b13db-3b0b-4322-9e07-1a09a4554964/delivery-hero.png",
-  "r2_key": "a/v1/d87f8e30-df83-4ce7-ae4a-4154e685c5ea/dd2b13db-3b0b-4322-9e07-1a09a4554964/delivery-hero.png",
-  "original_filename": "delivery-hero.png",
-  "size": 1569550,
   "content_type": "image/png",
-  "created_at": "2026-07-13T03:13:38Z"
+  "created_at": "2026-07-13T03:13:38Z",
+  "original_filename": "delivery-hero.png",
+  "project_id": "47162898-331d-4cc6-9de9-afc3215e8ecd",
+  "r2_key": "a/v1/47162898-331d-4cc6-9de9-afc3215e8ecd/dd2b13db-3b0b-4322-9e07-1a09a4554964/delivery-hero.png",
+  "size": 1569550,
+  "url": "/__l5e/assets-v1/dd2b13db-3b0b-4322-9e07-1a09a4554964/delivery-hero.png",
+  "version": 1
 }

@@ -1,1 +1,0 @@
-ALTER TABLE public.crm_settings ADD COLUMN IF NOT EXISTS ai_agent_trigger_keyword TEXT;

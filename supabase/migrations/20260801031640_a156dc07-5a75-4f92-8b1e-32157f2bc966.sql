@@ -1,1 +1,0 @@
-ALTER TABLE public.mktcc_projects ADD COLUMN IF NOT EXISTS instagram_bio TEXT NOT NULL DEFAULT '';

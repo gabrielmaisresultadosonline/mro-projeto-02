@@ -1,1 +1,0 @@
-ALTER TABLE public.crm_settings ADD COLUMN IF NOT EXISTS vps_transcoder_url TEXT;

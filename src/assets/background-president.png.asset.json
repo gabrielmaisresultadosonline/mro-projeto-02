@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "f0290dd8-8fda-4879-b6e7-19cdae22630a",
-  "project_id": "d87f8e30-df83-4ce7-ae4a-4154e685c5ea",
-  "url": "/__l5e/assets-v1/f0290dd8-8fda-4879-b6e7-19cdae22630a/background-president.png",
-  "r2_key": "a/v1/d87f8e30-df83-4ce7-ae4a-4154e685c5ea/f0290dd8-8fda-4879-b6e7-19cdae22630a/background-president.png",
-  "original_filename": "background-president.png",
-  "size": 952150,
   "content_type": "image/png",
-  "created_at": "2026-08-04T18:18:25Z"
+  "created_at": "2026-08-04T18:18:25Z",
+  "original_filename": "background-president.png",
+  "project_id": "47162898-331d-4cc6-9de9-afc3215e8ecd",
+  "r2_key": "a/v1/47162898-331d-4cc6-9de9-afc3215e8ecd/f0290dd8-8fda-4879-b6e7-19cdae22630a/background-president.png",
+  "size": 952150,
+  "url": "/__l5e/assets-v1/f0290dd8-8fda-4879-b6e7-19cdae22630a/background-president.png",
+  "version": 1
 }

@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "f1837d8e-9e04-4810-8cd3-9552965dd0f2",
-  "project_id": "d87f8e30-df83-4ce7-ae4a-4154e685c5ea",
-  "url": "/__l5e/assets-v1/f1837d8e-9e04-4810-8cd3-9552965dd0f2/tutorial-preview.mp4",
-  "r2_key": "a/v1/d87f8e30-df83-4ce7-ae4a-4154e685c5ea/f1837d8e-9e04-4810-8cd3-9552965dd0f2/tutorial-preview.mp4",
-  "original_filename": "tutorial-preview.mp4",
-  "size": 1047667,
   "content_type": "video/mp4",
-  "created_at": "2026-07-08T21:22:25Z"
+  "created_at": "2026-07-08T21:22:25Z",
+  "original_filename": "tutorial-preview.mp4",
+  "project_id": "47162898-331d-4cc6-9de9-afc3215e8ecd",
+  "r2_key": "a/v1/47162898-331d-4cc6-9de9-afc3215e8ecd/f1837d8e-9e04-4810-8cd3-9552965dd0f2/tutorial-preview.mp4",
+  "size": 1047667,
+  "url": "/__l5e/assets-v1/f1837d8e-9e04-4810-8cd3-9552965dd0f2/tutorial-preview.mp4",
+  "version": 1
 }

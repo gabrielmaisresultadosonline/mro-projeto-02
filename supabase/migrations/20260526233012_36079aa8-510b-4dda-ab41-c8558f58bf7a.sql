@@ -1,1 +1,0 @@
-ALTER TABLE public.empresas_leads ADD COLUMN IF NOT EXISTS dispositivo text;

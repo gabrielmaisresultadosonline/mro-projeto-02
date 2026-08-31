@@ -1,1 +1,0 @@
-GRANT EXECUTE ON FUNCTION public.get_whatsapp_public_config() TO anon, authenticated;
