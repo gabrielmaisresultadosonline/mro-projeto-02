@@ -162,10 +162,10 @@ storageRouter.get("/object/public/:bucket/*", async (req, res) => {
   const bucket = req.params.bucket;
   const name = objectPathFromRequest(req);
 
-  if (!(await isPublicBucket(bucket))) {
+  if (!(await isReadablePublicBucket(bucket))) {
     throw new RestError(400, "Bucket não é público.");
   }
-  await streamFile(bucket, name, res);
+  await streamFile(bucket, name, req, res);
 });
 
 /** Download autenticado. */
@@ -174,7 +174,7 @@ storageRouter.get("/object/authenticated/:bucket/*", async (req, res) => {
   if (auth.role === "anon") {
     throw new RestError(401, "Autenticação necessária.");
   }
-  await streamFile(req.params.bucket, objectPathFromRequest(req), res);
+  await streamFile(req.params.bucket, objectPathFromRequest(req), req, res);
 });
 
 storageRouter.get("/object/:bucket/*", async (req, res) => {
@@ -185,12 +185,65 @@ storageRouter.get("/object/:bucket/*", async (req, res) => {
   if (auth.role === "anon" && !(await isPublicBucket(bucket))) {
     throw new RestError(401, "Autenticação necessária.");
   }
-  await streamFile(bucket, name, res);
+  await streamFile(bucket, name, req, res);
 });
 
-async function streamFile(bucket: string, name: string, res: import("express").Response) {
+/**
+ * Busca o objeto nas origens remotas configuradas quando ele não existe no
+ * disco. Sem isso, qualquer mídia que não veio na migração fica quebrada.
+ * O primeiro acesso grava o arquivo localmente (self-healing).
+ */
+async function fetchFromFallback(
+  bucket: string,
+  name: string,
+  absolute: string,
+): Promise<boolean> {
+  for (const origin of env.storage.fallbackOrigins) {
+    const remote = `${origin}/storage/v1/object/public/${bucket}/${name
+      .split("/")
+      .map(encodeURIComponent)
+      .join("/")}`;
+    try {
+      const response = await fetch(remote);
+      if (!response.ok || !response.body) continue;
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      if (buffer.byteLength === 0) continue;
+
+      if (env.storage.cacheFallback) {
+        await fs.mkdir(path.dirname(absolute), { recursive: true });
+        await fs.writeFile(absolute, buffer);
+        await recordObject({
+          bucket,
+          name,
+          size: buffer.byteLength,
+          contentType:
+            response.headers.get("content-type") ??
+            (mime.lookup(name) || "application/octet-stream"),
+          owner: null,
+        }).catch(() => undefined);
+      }
+      return true;
+    } catch {
+      // Origem indisponível: tenta a próxima.
+    }
+  }
+  return false;
+}
+
+async function streamFile(
+  bucket: string,
+  name: string,
+  req: Request,
+  res: import("express").Response,
+) {
   const absolute = safeJoin(bucket, name);
-  const stat = await fs.stat(absolute).catch(() => null);
+  let stat = await fs.stat(absolute).catch(() => null);
+
+  if (!stat || !stat.isFile()) {
+    const recovered = await fetchFromFallback(bucket, name, absolute);
+    stat = recovered ? await fs.stat(absolute).catch(() => null) : null;
+  }
 
   if (!stat || !stat.isFile()) {
     res.status(404).json({
@@ -201,11 +254,50 @@ async function streamFile(bucket: string, name: string, res: import("express").R
     return;
   }
 
-  res.setHeader("Content-Type", mime.lookup(absolute) || "application/octet-stream");
-  res.setHeader("Content-Length", String(stat.size));
+  const contentType = mime.lookup(absolute) || "application/octet-stream";
+  res.setHeader("Content-Type", contentType);
   res.setHeader("Cache-Control", "public, max-age=3600");
+  // Obrigatório para <video>/<audio>: sem Range o player não busca nem
+  // carrega em vários navegadores (Safari/iOS exige 206).
+  res.setHeader("Accept-Ranges", "bytes");
+
+  const range = req.header("range");
+  const match = range ? /^bytes=(\d*)-(\d*)$/.exec(range.trim()) : null;
+
+  if (match) {
+    const size = stat.size;
+    const startRaw = match[1];
+    const endRaw = match[2];
+
+    let start = startRaw === "" ? NaN : Number(startRaw);
+    let end = endRaw === "" ? NaN : Number(endRaw);
+
+    if (Number.isNaN(start) && !Number.isNaN(end)) {
+      // Sufixo: bytes=-500 (últimos 500 bytes).
+      start = Math.max(size - end, 0);
+      end = size - 1;
+    } else if (!Number.isNaN(start) && Number.isNaN(end)) {
+      end = size - 1;
+    }
+
+    if (Number.isNaN(start) || start >= size || start > end) {
+      res.status(416).setHeader("Content-Range", `bytes */${size}`);
+      res.end();
+      return;
+    }
+    end = Math.min(end, size - 1);
+
+    res.status(206);
+    res.setHeader("Content-Range", `bytes ${start}-${end}/${size}`);
+    res.setHeader("Content-Length", String(end - start + 1));
+    createReadStream(absolute, { start, end }).pipe(res);
+    return;
+  }
+
+  res.setHeader("Content-Length", String(stat.size));
   createReadStream(absolute).pipe(res);
 }
+
 
 /** URL assinada com HMAC e expiração — equivalente ao createSignedUrl. */
 storageRouter.post("/object/sign/:bucket/*", async (req, res) => {
