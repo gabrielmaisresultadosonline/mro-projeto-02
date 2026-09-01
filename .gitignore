@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Env de corte para o backend próprio (gerado na VPS)
+.env.production.local
