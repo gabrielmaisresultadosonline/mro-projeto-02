@@ -42,15 +42,18 @@ let nextPort = env.functions.basePort;
  * que o PM2 normalmente fornece.
  */
 function resolveDenoBin(): string {
+  const pathCandidates = (process.env.PATH ?? "")
+    .split(path.delimiter)
+    .filter(Boolean)
+    .map((directory) => path.join(directory, "deno"));
   const candidates = [
-    env.functions.denoBin,
+    env.functions.denoBin === "deno" ? "" : env.functions.denoBin,
     "/usr/local/bin/deno",
     process.env.HOME ? path.join(process.env.HOME, ".deno/bin/deno") : "",
-    "deno",
+    ...pathCandidates,
   ].filter(Boolean);
 
   for (const candidate of candidates) {
-    if (candidate === "deno") return candidate;
     try {
       accessSync(candidate, constants.X_OK);
       return candidate;
@@ -58,7 +61,7 @@ function resolveDenoBin(): string {
       // Tenta o próximo local conhecido.
     }
   }
-  return env.functions.denoBin;
+  return "";
 }
 
 const denoBin = resolveDenoBin();
@@ -90,6 +93,9 @@ async function waitForPort(port: number, timeoutMs = 25_000): Promise<void> {
 }
 
 function startFunction(name: string, entry: string): RunningFunction {
+  if (!denoBin) {
+    throw new RestError(503, "Runtime Deno indisponível no servidor.");
+  }
   const port = nextPort;
   nextPort += 1;
 
@@ -235,9 +241,7 @@ export function listAvailableFunctions(): string[] {
 }
 
 export function functionsRuntime(): { denoBin: string; available: boolean } {
-  if (denoBin === "deno") {
-    return { denoBin, available: true };
-  }
+  if (!denoBin) return { denoBin: env.functions.denoBin, available: false };
   try {
     accessSync(denoBin, constants.X_OK);
     return { denoBin, available: true };
