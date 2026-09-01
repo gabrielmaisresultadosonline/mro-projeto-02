@@ -107,6 +107,22 @@ done
 
 # ---------- 4. Migração de dados e mídias ----------
 if [ "$MIGRATE" = true ]; then
+  # Rede de segurança: dump do banco local ANTES de qualquer escrita.
+  if [ -f server/.env ]; then
+    DB_URL="$(grep -E '^DATABASE_URL=' server/.env | head -1 | cut -d= -f2- | tr -d '"'"'"'')"
+    if [ -n "${DB_URL:-}" ]; then
+      BACKUP_DIR="${BACKUP_DIR:-/var/backups/mro}"
+      sudo mkdir -p "$BACKUP_DIR" 2>/dev/null || mkdir -p "$BACKUP_DIR" 2>/dev/null || true
+      BACKUP_FILE="$BACKUP_DIR/pg-$(date +%Y%m%d-%H%M%S).sql.gz"
+      if pg_dump -d "$DB_URL" 2>/dev/null | gzip > "$BACKUP_FILE"; then
+        ok "Backup do PostgreSQL local em $BACKUP_FILE"
+      else
+        rm -f "$BACKUP_FILE"
+        warn "Não foi possível gerar o backup automático (segue adiante; nada é apagado)."
+      fi
+    fi
+  fi
+
   step "Sincronizando dados e arquivos do Supabase"
   if [ "$CUTOVER" = true ]; then
     (cd server && npm run migrate:all -- --apply-urls)
@@ -116,6 +132,7 @@ if [ "$MIGRATE" = true ]; then
 else
   warn "Migração de dados não solicitada (use --migrate)."
 fi
+
 
 # ---------- 5. Diretórios de upload ----------
 step "Preparando o diretório de uploads"
