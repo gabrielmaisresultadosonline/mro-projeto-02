@@ -261,10 +261,12 @@ if [ "$CUTOVER" = true ]; then
 
   # O login e várias áreas dependem de Edge Functions. Um /health saudável não
   # basta: iniciamos uma função real pelo mesmo proxy usado no navegador.
-  if curl -sf --max-time 35 -X OPTIONS \
+  if curl -sf --max-time 35 -X POST \
       -H "Origin: https://maisresultadosonline.com.br" \
-      -H "Access-Control-Request-Method: POST" \
-      -H "Access-Control-Request-Headers: authorization,apikey,content-type,x-client-info" \
+      -H "apikey: $ANON_KEY" \
+      -H "Authorization: Bearer $ANON_KEY" \
+      -H "Content-Type: application/json" \
+      --data '{"action":"verify_user","username":"__deploy_healthcheck__"}' \
       "http://127.0.0.1:${PORT_LOCAL}/functions/v1/mro-tool-api" >/dev/null; then
     ok "Edge Function de login iniciou e respondeu pelo proxy local."
   else
