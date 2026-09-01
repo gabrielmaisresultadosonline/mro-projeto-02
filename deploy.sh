@@ -109,10 +109,30 @@ chmod 750 "$STORAGE_DIR"
 ok "Uploads em $STORAGE_DIR ($(du -sh "$STORAGE_DIR" 2>/dev/null | cut -f1) usados)."
 
 # ---------- 6. Frontend ----------
+# No corte final o site precisa ser compilado com VITE_USE_LOCAL_BACKEND=true;
+# sem isso as 213 páginas continuariam falando com o Supabase mesmo já tendo o
+# banco e as mídias na VPS. As chaves vêm do server/.env que já está no disco.
+if [ "$CUTOVER" = true ]; then
+  step "Apontando o site para o backend próprio"
+  [ -n "${ANON_KEY:-}" ] || fail "ANON_KEY vazio em server/.env — é a chave que o site usa para falar com a API."
+  API_URL_FINAL="${PUBLIC_API_URL:-https://api.maisresultadosonline.com.br}"
+  cat > "$FRONT_ENV" <<EOF
+# Gerado por deploy.sh --cutover em $(date -Is). Remova com ./deploy.sh --voltar.
+VITE_USE_LOCAL_BACKEND=true
+VITE_API_URL=$API_URL_FINAL
+VITE_API_ANON_KEY=$ANON_KEY
+VITE_SUPABASE_URL=$API_URL_FINAL
+VITE_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY
+EOF
+  chmod 600 "$FRONT_ENV"
+  ok "Build usará $API_URL_FINAL."
+fi
+
 step "Compilando o site"
 npm run build
 [ -d dist ] || fail "Build não gerou a pasta dist/."
 ok "Site compilado ($(du -sh dist | cut -f1))."
+
 
 if [ -n "${WEB_ROOT:-}" ]; then
   rsync -a --delete dist/ "$WEB_ROOT/"
