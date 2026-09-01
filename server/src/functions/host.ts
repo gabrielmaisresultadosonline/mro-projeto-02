@@ -24,6 +24,8 @@ import { RestError } from "../rest/identifiers.js";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const functionsDir = path.resolve(here, "../../", env.functions.dir);
 const runnerPath = path.resolve(here, "runner.ts");
+const denoConfigPath = path.join(functionsDir, "deno.json");
+
 
 interface RunningFunction {
   name: string;
