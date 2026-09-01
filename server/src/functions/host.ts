@@ -118,6 +118,11 @@ function startFunction(name: string, entry: string): RunningFunction {
     },
   );
 
+  const spawnReady = new Promise<void>((resolve, reject) => {
+    child.once("spawn", resolve);
+    child.once("error", reject);
+  });
+
   child.stdout?.on("data", (chunk) => {
     process.stdout.write(`[fn:${name}] ${chunk}`);
   });
@@ -137,7 +142,7 @@ function startFunction(name: string, entry: string): RunningFunction {
     name,
     port,
     process: child,
-    ready: waitForPort(port),
+    ready: spawnReady.then(() => waitForPort(port)),
     startedAt: Date.now(),
   };
 
