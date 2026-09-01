@@ -133,6 +133,18 @@ install_deps "."
 install_deps "server"
 ok "Backend e frontend com dependências instaladas."
 
+# Resolve e compila os imports remotos antes de reiniciar o serviço. Sem esse
+# aquecimento, o primeiro login após cada deploy pode ficar aguardando o Deno
+# baixar módulos e exceder o timeout do proxy.
+if command -v deno >/dev/null 2>&1; then
+  step "Preparando as funções locais"
+  if timeout 600 deno cache supabase/functions/*/index.ts; then
+    ok "Imports das Edge Functions armazenados no cache local."
+  else
+    warn "Algum import não pôde ser pré-carregado; o backend fará nova tentativa sob demanda."
+  fi
+fi
+
 
 # ---------- 3. Banco de dados ----------
 step "Aplicando estrutura do banco"
@@ -223,6 +235,9 @@ fi
 # ---------- 7. Serviços ----------
 step "Reiniciando o backend"
 if command -v pm2 >/dev/null 2>&1; then
+  # Remove processos Deno órfãos de reinícios anteriores; sem isso, eles podem
+  # manter as portas 9100+ ocupadas e provocar 502 nas novas funções.
+  pkill -f '[r]unner\.ts' 2>/dev/null || true
   pm2 startOrReload ecosystem.config.cjs --update-env
   pm2 save >/dev/null
   ok "PM2 recarregado."
@@ -248,10 +263,70 @@ for attempt in $(seq 1 20); do
   sleep 1
 done
 
+# Atualiza somente a rota pública de mídia dentro do virtual host já ativo.
+# O restante da configuração (incluindo certificados TLS) é preservado.
+if command -v nginx >/dev/null 2>&1 && [ -d /etc/nginx/sites-enabled ]; then
+  step "Configurando streaming de mídias no Nginx"
+  API_NGINX_CONFIG="$(sudo grep -rl 'server_name api\.maisresultadosonline\.com\.br' /etc/nginx/sites-enabled /etc/nginx/conf.d 2>/dev/null | head -1 || true)"
+  if [ -n "$API_NGINX_CONFIG" ]; then
+    sudo python3 - "$API_NGINX_CONFIG" <<'PY'
+import pathlib
+import re
+import sys
+
+config = pathlib.Path(sys.argv[1])
+text = config.read_text()
+location = re.compile(r"(?ms)^\s*location\s+/storage/v1/object/public/\s*\{[^{}]*\}")
+replacement = """    location /storage/v1/object/public/ {
+        proxy_pass http://127.0.0.1:8787;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Range $http_range;
+        proxy_set_header If-Range $http_if_range;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_read_timeout 600s;
+    }"""
+
+if location.search(text):
+    updated = location.sub(replacement, text, count=1)
+else:
+    # Sem uma location específica, a location / já encaminha a mídia ao Node.
+    updated = text
+
+if updated != text:
+    backup = config.with_suffix(config.suffix + ".pre-media-hotfix")
+    backup.write_text(text)
+    config.write_text(updated)
+PY
+    sudo nginx -t || fail "Configuração do Nginx inválida; o arquivo anterior foi preservado em .pre-media-hotfix."
+    ok "Mídias públicas encaminhadas ao backend com suporte a Range/206."
+  else
+    warn "Virtual host da API não localizado; preservando a configuração atual."
+  fi
+fi
+
 # Recarrega o Nginx (site estático em dist/) para servir o build novo.
 command -v systemctl >/dev/null 2>&1 && sudo systemctl reload nginx && ok "Nginx recarregado."
 
 if [ "$CUTOVER" = true ]; then
+  # O navegador faz OPTIONS antes do POST. Validamos explicitamente o CORS
+  # público, não apenas a porta local, para detectar configuração antiga do Nginx.
+  if curl -sf --max-time 10 -X OPTIONS \
+      -H "Origin: https://maisresultadosonline.com.br" \
+      -H "Access-Control-Request-Method: POST" \
+      -H "Access-Control-Request-Headers: authorization,apikey,content-type,x-client-info" \
+      -D /tmp/mro-cors-headers -o /dev/null \
+      "${API_URL_FINAL%/}/functions/v1/ferramentamropromo-video" \
+      && grep -qi '^access-control-allow-origin:' /tmp/mro-cors-headers; then
+    ok "CORS público das Edge Functions validado."
+  else
+    fail "CORS público das Edge Functions inválido; confira o virtual host da API no Nginx."
+  fi
+
   # Confere de fato pela porta pública se a API responde com a chave anônima:
   # é isso que o navegador vai fazer em cada página.
   curl -sf --max-time 5 -H "apikey: $ANON_KEY" -H "Authorization: Bearer $ANON_KEY" \
@@ -272,6 +347,21 @@ if [ "$CUTOVER" = true ]; then
   else
     tail -n 80 /var/log/mro/api-error.log 2>/dev/null || true
     fail "Edge Functions indisponíveis; corte bloqueado para evitar falha de login."
+  fi
+
+  # Esta função consulta o PostgreSQL e entrega a configuração dos vídeos;
+  # portanto testa de uma vez proxy, runtime Deno e acesso interno ao REST.
+  if curl -sf --max-time 70 -X POST \
+      -H "Origin: https://maisresultadosonline.com.br" \
+      -H "apikey: $ANON_KEY" \
+      -H "Authorization: Bearer $ANON_KEY" \
+      -H "Content-Type: application/json" \
+      --data '{"action":"get_video"}' \
+      "${API_URL_FINAL%/}/functions/v1/ferramentamropromo-video" >/dev/null; then
+    ok "Função de vídeo respondeu usando o PostgreSQL local."
+  else
+    tail -n 80 /var/log/mro/api-error.log 2>/dev/null || true
+    fail "Função de vídeo indisponível; deploy bloqueado para evitar páginas sem mídia."
   fi
 fi
 
