@@ -339,7 +339,7 @@ storageRouter.get("/object/signed/:bucket/*", async (req, res) => {
   if (!valid) {
     throw new RestError(403, "Assinatura inválida.");
   }
-  await streamFile(bucket, name, res);
+  await streamFile(bucket, name, req, res);
 });
 
 /** Listagem de objetos (usada pelo painel admin e pelo dump). */
