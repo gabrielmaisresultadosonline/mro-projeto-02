@@ -102,8 +102,20 @@ function startFunction(name: string, entry: string): RunningFunction {
 
   const child = spawn(
     denoBin,
-    ["run", "--allow-all", "--no-prompt", runnerPath, entry],
+    [
+      "run",
+      "--allow-all",
+      "--no-prompt",
+      // Sem este config o Deno 2 entra em modo "manual" (por causa do
+      // package.json na raiz) e recusa imports npm: ausentes de node_modules.
+      "--config",
+      denoConfigPath,
+      runnerPath,
+      entry,
+    ],
     {
+      cwd: functionsDir,
+
       env: {
         ...process.env,
         // As funções originais usam estes nomes. No backend próprio eles devem
