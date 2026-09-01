@@ -4,7 +4,10 @@
 #
 #   ./deploy.sh              → atualiza código, banco, backend e frontend
 #   ./deploy.sh --migrate    → o acima + sincroniza dados/arquivos do Supabase
-#   ./deploy.sh --cutover    → corte final: migra, reescreve URLs e valida
+#   ./deploy.sh --cutover    → corte final: migra, reescreve URLs, compila o
+#                              site JÁ no PostgreSQL da VPS e valida
+#   ./deploy.sh --voltar     → desfaz só o corte do frontend (volta ao Supabase)
+
 #
 # Executar na raiz do projeto, na VPS, como o usuário da aplicação.
 # ============================================================
