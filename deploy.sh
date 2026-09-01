@@ -57,14 +57,30 @@ command -v deno >/dev/null 2>&1 || warn "deno não encontrado: as funções (/fu
 ok "Ambiente pronto."
 
 # ---------- 1. Código ----------
+# Repositório oficial deste projeto. Pode ser sobrescrito com REPO_URL=... ./deploy.sh
+REPO_URL="${REPO_URL:-https://github.com/gabrielmaisresultadosonline/mro-projeto-02.git}"
+
 step "Atualizando o código"
 if [ -d .git ]; then
-  git fetch --all --quiet
+  CURRENT_REMOTE="$(git remote get-url origin 2>/dev/null || echo '')"
+  # normaliza (ignora sufixo .git e barra final) para comparar com o oficial
+  norm() { echo "${1%/}" | sed -E 's/\.git$//'; }
+  if [ "$(norm "$CURRENT_REMOTE")" != "$(norm "$REPO_URL")" ]; then
+    warn "origin apontava para: ${CURRENT_REMOTE:-<nenhum>}"
+    if [ -n "$CURRENT_REMOTE" ]; then
+      git remote set-url origin "$REPO_URL"
+    else
+      git remote add origin "$REPO_URL"
+    fi
+    ok "origin corrigido para $REPO_URL"
+  fi
+  git fetch origin main --quiet
   git reset --hard origin/main --quiet
-  ok "Código em $(git rev-parse --short HEAD)."
+  ok "Código em $(git rev-parse --short HEAD) ($(git remote get-url origin))."
 else
   warn "Não é um repositório git; usando os arquivos presentes no disco."
 fi
+
 
 # ---------- 2. Dependências ----------
 step "Instalando dependências"
