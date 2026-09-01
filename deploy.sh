@@ -53,16 +53,33 @@ for binary in node npm psql pg_dump; do
   command -v "$binary" >/dev/null 2>&1 || fail "$binary não encontrado. Rode ./deploy/install-vps.sh primeiro."
 done
 [ -f server/.env ] || fail "server/.env não existe. Copie de server/.env.example e preencha."
+install_deno() {
+  local arch asset tmp_dir
+  case "$(uname -m)" in
+    x86_64|amd64) arch="x86_64-unknown-linux-gnu" ;;
+    aarch64|arm64) arch="aarch64-unknown-linux-gnu" ;;
+    *) return 1 ;;
+  esac
+  asset="https://github.com/denoland/deno/releases/latest/download/deno-${arch}.zip"
+  tmp_dir="$(mktemp -d)"
+  curl -fL --retry 3 --connect-timeout 15 "$asset" -o "$tmp_dir/deno.zip" || { rm -rf "$tmp_dir"; return 1; }
+  command -v unzip >/dev/null 2>&1 || sudo apt-get install -y unzip
+  unzip -oq "$tmp_dir/deno.zip" -d "$tmp_dir"
+  sudo install -m 0755 "$tmp_dir/deno" /usr/local/bin/deno
+  rm -rf "$tmp_dir"
+}
+
 if ! command -v deno >/dev/null 2>&1; then
-  # Instala em /usr/local/bin para ficar disponível também ao PM2.
-  export DENO_INSTALL="${DENO_INSTALL:-/usr/local}"
-  if curl -fsSL https://deno.land/install.sh | sudo -E DENO_INSTALL="$DENO_INSTALL" sh -s -- -y >/dev/null 2>&1 \
-     || curl -fsSL https://deno.land/install.sh | DENO_INSTALL="$HOME/.deno" sh -s -- -y >/dev/null 2>&1; then
-    export PATH="$DENO_INSTALL/bin:$HOME/.deno/bin:$PATH"
-  fi
-  command -v deno >/dev/null 2>&1 \
-    && ok "deno instalado ($(deno --version | head -1))." \
-    || warn "deno não encontrado: as funções (/functions/v1) não vão subir."
+  warn "Deno ausente; instalando o runtime obrigatório das funções."
+  install_deno || true
+fi
+
+if command -v deno >/dev/null 2>&1; then
+  ok "Deno disponível ($(deno --version | head -1))."
+elif [ "$CUTOVER" = true ]; then
+  fail "Deno não pôde ser instalado. Corte bloqueado para não publicar logins sem /functions/v1."
+else
+  warn "Deno não encontrado: as funções (/functions/v1) não vão subir."
 fi
 
 ok "Ambiente pronto."
@@ -233,6 +250,19 @@ if [ "$CUTOVER" = true ]; then
     "http://127.0.0.1:${PORT_LOCAL}/rest/v1/hub_products?select=id&limit=1" >/dev/null \
     && ok "REST respondendo com a chave anônima do site." \
     || warn "REST não respondeu como esperado — confira RLS/ANON_KEY antes de divulgar."
+
+  # O login e várias áreas dependem de Edge Functions. Um /health saudável não
+  # basta: iniciamos uma função real pelo mesmo proxy usado no navegador.
+  if curl -sf --max-time 35 -X OPTIONS \
+      -H "Origin: https://maisresultadosonline.com.br" \
+      -H "Access-Control-Request-Method: POST" \
+      -H "Access-Control-Request-Headers: authorization,apikey,content-type,x-client-info" \
+      "http://127.0.0.1:${PORT_LOCAL}/functions/v1/mro-tool-api" >/dev/null; then
+    ok "Edge Function de login iniciou e respondeu pelo proxy local."
+  else
+    tail -n 80 /var/log/mro/api-error.log 2>/dev/null || true
+    fail "Edge Functions indisponíveis; corte bloqueado para evitar falha de login."
+  fi
 fi
 
 echo -e "\n${GREEN}═══ Deploy concluído ═══${NC}"

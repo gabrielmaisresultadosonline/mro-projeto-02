@@ -17,7 +17,7 @@ import { healthCheck } from "./db.js";
 import { restRouter } from "./rest/router.js";
 import { authRouter } from "./auth/router.js";
 import { storageRouter } from "./storage/router.js";
-import { functionsRouter, functionsStatus, listAvailableFunctions, shutdownFunctions } from "./functions/host.js";
+import { functionsRouter, functionsRuntime, functionsStatus, listAvailableFunctions, shutdownFunctions } from "./functions/host.js";
 import { attachRealtime, realtimeStatus } from "./realtime.js";
 import { RestError } from "./rest/identifiers.js";
 
@@ -58,7 +58,11 @@ app.get("/health", async (_req, res) => {
   res.status(db.ok ? 200 : 503).json({
     ok: db.ok,
     database: db,
-    functions: { available: listAvailableFunctions().length, running: functionsStatus() },
+    functions: {
+      available: listAvailableFunctions().length,
+      running: functionsStatus(),
+      runtime: functionsRuntime(),
+    },
     realtime: realtimeStatus(),
     uptimeSeconds: Math.round(process.uptime()),
     version: process.env.APP_VERSION ?? "dev",
