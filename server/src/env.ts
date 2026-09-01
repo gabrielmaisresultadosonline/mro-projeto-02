@@ -74,7 +74,28 @@ export const env = {
     root: optional("STORAGE_ROOT", "/var/www/uploads"),
     /** Limite de upload em bytes (300MB, igual ao Nginx atual). */
     maxFileSizeBytes: toInt(optional("STORAGE_MAX_BYTES", String(300 * 1024 * 1024)), 300 * 1024 * 1024),
+    /**
+     * Origens remotas usadas como fallback quando o arquivo ainda não existe
+     * no disco (mídias que não foram baixadas na migração). Evita vídeo/imagem
+     * quebrada: servimos do remoto e gravamos em disco no primeiro acesso.
+     */
+    fallbackOrigins: optional(
+      "STORAGE_FALLBACK_URLS",
+      [
+        process.env.LEGACY_SUPABASE_URL ?? "",
+        process.env.SUPABASE_URL ?? "",
+        process.env.VITE_SUPABASE_URL ?? "",
+      ]
+        .filter(Boolean)
+        .join(","),
+    )
+      .split(",")
+      .map((o) => o.trim().replace(/\/+$/, ""))
+      .filter(Boolean),
+    /** Cacheia em disco o que vier do fallback (desative com `false`). */
+    cacheFallback: optional("STORAGE_CACHE_FALLBACK", "true") !== "false",
   },
+
 
   functions: {
     /** Diretório com as funções portadas (código Deno original). */
