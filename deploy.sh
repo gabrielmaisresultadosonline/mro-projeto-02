@@ -53,7 +53,18 @@ for binary in node npm psql pg_dump; do
   command -v "$binary" >/dev/null 2>&1 || fail "$binary não encontrado. Rode ./deploy/install-vps.sh primeiro."
 done
 [ -f server/.env ] || fail "server/.env não existe. Copie de server/.env.example e preencha."
-command -v deno >/dev/null 2>&1 || warn "deno não encontrado: as funções (/functions/v1) não vão subir."
+if ! command -v deno >/dev/null 2>&1; then
+  # Instala em /usr/local/bin para ficar disponível também ao PM2.
+  export DENO_INSTALL="${DENO_INSTALL:-/usr/local}"
+  if curl -fsSL https://deno.land/install.sh | sudo -E DENO_INSTALL="$DENO_INSTALL" sh -s -- -y >/dev/null 2>&1 \
+     || curl -fsSL https://deno.land/install.sh | DENO_INSTALL="$HOME/.deno" sh -s -- -y >/dev/null 2>&1; then
+    export PATH="$DENO_INSTALL/bin:$HOME/.deno/bin:$PATH"
+  fi
+  command -v deno >/dev/null 2>&1 \
+    && ok "deno instalado ($(deno --version | head -1))." \
+    || warn "deno não encontrado: as funções (/functions/v1) não vão subir."
+fi
+
 ok "Ambiente pronto."
 
 # ---------- 1. Código ----------
