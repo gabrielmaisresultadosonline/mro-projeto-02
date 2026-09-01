@@ -83,10 +83,20 @@ fi
 
 
 # ---------- 2. Dependências ----------
+# Sem --silent: se o npm falhar (lockfile desatualizado, conflito de peer deps,
+# falta de memória) precisamos ver o motivo em vez de sair calado.
 step "Instalando dependências"
-npm ci --no-audit --no-fund --silent
-(cd server && npm ci --no-audit --no-fund --silent)
+install_deps() {
+  local dir="$1"
+  ( cd "$dir" && { npm ci --no-audit --no-fund --legacy-peer-deps \
+      || { warn "npm ci falhou em '$dir'; tentando npm install --legacy-peer-deps."
+           npm install --no-audit --no-fund --legacy-peer-deps; }; } ) \
+    || fail "Falha ao instalar dependências em '$dir' (veja o log acima; se foi 'Killed', a VPS ficou sem memória — adicione swap)."
+}
+install_deps "."
+install_deps "server"
 ok "Backend e frontend com dependências instaladas."
+
 
 # ---------- 3. Banco de dados ----------
 step "Aplicando estrutura do banco"
