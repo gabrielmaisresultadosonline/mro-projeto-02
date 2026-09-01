@@ -62,11 +62,23 @@ async function isPublicBucket(bucket: string): Promise<boolean> {
     "SELECT public FROM storage_buckets WHERE id = $1",
     [bucket],
   );
-  // Bucket sem registro (metadado não migrado) não deve bloquear leitura
-  // pública: o caminho `/object/public/...` já é público por definição.
+  return rows[0]?.public === true;
+}
+
+/**
+ * Leitura pelo caminho `/object/public/...`. Um bucket sem registro de
+ * metadado (não migrado) não deve bloquear a leitura — só a escrita.
+ */
+async function isReadablePublicBucket(bucket: string): Promise<boolean> {
+  const rows = await adminQuery<{ public: boolean }>(
+    "SELECT public FROM storage_buckets WHERE id = $1",
+    [bucket],
+  );
   if (rows.length === 0) return true;
   return rows[0]?.public === true;
 }
+
+
 
 
 async function recordObject(params: {
