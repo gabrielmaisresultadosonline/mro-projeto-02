@@ -24,6 +24,8 @@ import { RestError } from "../rest/identifiers.js";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const functionsDir = path.resolve(here, "../../", env.functions.dir);
 const runnerPath = path.resolve(here, "runner.ts");
+const denoConfigPath = path.join(functionsDir, "deno.json");
+
 
 interface RunningFunction {
   name: string;
@@ -102,8 +104,20 @@ function startFunction(name: string, entry: string): RunningFunction {
 
   const child = spawn(
     denoBin,
-    ["run", "--allow-all", "--no-prompt", runnerPath, entry],
+    [
+      "run",
+      "--allow-all",
+      "--no-prompt",
+      // Sem este config o Deno 2 entra em modo "manual" (por causa do
+      // package.json na raiz) e recusa imports npm: ausentes de node_modules.
+      "--config",
+      denoConfigPath,
+      runnerPath,
+      entry,
+    ],
     {
+      cwd: functionsDir,
+
       env: {
         ...process.env,
         // As funções originais usam estes nomes. No backend próprio eles devem

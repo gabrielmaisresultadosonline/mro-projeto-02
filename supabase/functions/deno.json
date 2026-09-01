@@ -1,0 +1,4 @@
+{
+  "$comment": "Configuração usada pelo backend próprio (VPS) ao executar as funções com Deno. 'none' impede o Deno 2 de exigir que os pacotes npm: existam em node_modules (modo 'manual', ativado automaticamente quando há package.json na árvore do projeto). Assim os imports npm: são baixados para o cache global do Deno, como acontece no ambiente gerenciado.",
+  "nodeModulesDir": "none"
+}
