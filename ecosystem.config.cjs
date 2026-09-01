@@ -17,7 +17,9 @@ module.exports = {
       max_restarts: 10,
       min_uptime: "20s",
       max_memory_restart: "1G",
-      kill_timeout: 10000,
+      // Dá tempo para chamadas em andamento terminarem e para o handler
+      // SIGTERM encerrar os processos Deno filhos antes de um SIGKILL.
+      kill_timeout: 70000,
       env: {
         NODE_ENV: "production",
         // PM2 iniciado pelo systemd costuma herdar um PATH mínimo. As funções

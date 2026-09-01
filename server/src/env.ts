@@ -104,6 +104,10 @@ export const env = {
     basePort: toInt(optional("FUNCTIONS_BASE_PORT", "9100"), 9100),
     /** Tempo máximo de execução por chamada. */
     timeoutMs: toInt(optional("FUNCTIONS_TIMEOUT_MS", "60000"), 60000),
+    /** Tempo permitido para baixar imports e iniciar uma função fria. */
+    startupTimeoutMs: toInt(optional("FUNCTIONS_STARTUP_TIMEOUT_MS", "60000"), 60000),
+    /** Encerra funções ociosas para evitar crescimento ilimitado de memória. */
+    idleTimeoutMs: toInt(optional("FUNCTIONS_IDLE_TIMEOUT_MS", "900000"), 900000),
     /** Caminho do binário do Deno na VPS. */
     denoBin: optional("DENO_BIN", "deno"),
     /** Desliga o host de funções (útil em ambiente de teste). */

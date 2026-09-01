@@ -18,7 +18,7 @@ export const log = {
   error(message: string): void {
     console.error(`  \x1b[31m✗\x1b[0m ${message}`);
   },
-  table(rows: Record<string, unknown>[]): void {
+  table(rows: readonly object[]): void {
     if (rows.length === 0) return;
     console.table(rows);
   },

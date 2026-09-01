@@ -19,6 +19,31 @@ if (!port || !entry) {
   Deno.exit(1);
 }
 
+/**
+ * As funções usam SUPABASE_URL tanto para inicializar o SDK quanto para criar
+ * URLs públicas de webhooks. Mantemos a variável pública intacta, mas fazemos
+ * o fetch do SDK trafegar por loopback. Isso elimina a recursão pela CDN sem
+ * transformar URLs entregues a provedores externos em 127.0.0.1.
+ */
+const publicApiUrl = Deno.env.get("SUPABASE_URL")?.replace(/\/+$/, "");
+const internalApiUrl = Deno.env.get("SUPABASE_INTERNAL_URL")?.replace(/\/+$/, "");
+const originalFetch = globalThis.fetch.bind(globalThis);
+
+if (publicApiUrl && internalApiUrl) {
+  globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const sourceUrl = input instanceof Request ? input.url : String(input);
+    if (!sourceUrl.startsWith(`${publicApiUrl}/`)) {
+      return originalFetch(input, init);
+    }
+
+    const internalUrl = `${internalApiUrl}${sourceUrl.slice(publicApiUrl.length)}`;
+    if (input instanceof Request) {
+      return originalFetch(new Request(internalUrl, input), init);
+    }
+    return originalFetch(internalUrl, init);
+  };
+}
+
 // std/http `serve()` usa Deno.listen internamente.
 const originalListen = Deno.listen.bind(Deno);
 // deno-lint-ignore no-explicit-any

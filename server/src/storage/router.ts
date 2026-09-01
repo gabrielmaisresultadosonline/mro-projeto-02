@@ -99,8 +99,8 @@ async function recordObject(params: {
   );
 }
 
-/** Upload/atualização — `upsert: true` do SDK vira o header `x-upsert`. */
-storageRouter.post("/object/:bucket/*", upload.single("file"), async (req, res) => {
+/** Upload/atualização — `upsert: true` do SDK vira PUT ou o header `x-upsert`. */
+const handleObjectUpload = async (req: Request, res: import("express").Response) => {
   const bucket = req.params.bucket;
   const name = objectPathFromRequest(req);
   const auth = resolveAuth(req);
@@ -134,10 +134,11 @@ storageRouter.post("/object/:bucket/*", upload.single("file"), async (req, res) 
   await fs.mkdir(path.dirname(absolute), { recursive: true });
   await fs.writeFile(absolute, body);
 
+  const detectedMime = mime.lookup(name);
   const contentType =
     req.file?.mimetype ??
     req.header("content-type") ??
-    mime.lookup(name) ??
+    (typeof detectedMime === "string" ? detectedMime : undefined) ??
     "application/octet-stream";
 
   await recordObject({
@@ -149,12 +150,14 @@ storageRouter.post("/object/:bucket/*", upload.single("file"), async (req, res) 
   });
 
   res.status(200).json({ Key: `${bucket}/${name}`, Id: crypto.randomUUID() });
-});
+};
+
+storageRouter.post("/object/:bucket/*", upload.single("file"), handleObjectUpload);
 
 // O SDK usa PUT quando `upsert: true`.
-storageRouter.put("/object/:bucket/*", upload.single("file"), (req, res, next) => {
+storageRouter.put("/object/:bucket/*", upload.single("file"), async (req, res) => {
   req.headers["x-upsert"] = "true";
-  storageRouter.handle({ ...req, method: "POST" } as Request, res, next);
+  await handleObjectUpload(req, res);
 });
 
 /** Download público — servido também pelo Nginx, esta rota é o fallback. */

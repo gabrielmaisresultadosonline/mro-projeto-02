@@ -31,6 +31,7 @@ interface RunningFunction {
   process: ChildProcess;
   ready: Promise<void>;
   startedAt: number;
+  lastUsedAt: number;
 }
 
 const running = new Map<string, RunningFunction>();
@@ -75,7 +76,7 @@ function functionEntrypoint(name: string): string | null {
   return fs.existsSync(entry) ? entry : null;
 }
 
-async function waitForPort(port: number, timeoutMs = 25_000): Promise<void> {
+async function waitForPort(port: number, timeoutMs = env.functions.startupTimeoutMs): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
@@ -108,7 +109,12 @@ function startFunction(name: string, entry: string): RunningFunction {
         // As funções originais usam estes nomes. No backend próprio eles devem
         // sempre apontar para a VPS, mesmo se server/.env ainda tiver aliases
         // antigos ou vazios da origem legada.
+        // SUPABASE_URL permanece público porque algumas funções o inserem em
+        // links de webhook. O runner desvia apenas requisições HTTP internas
+        // para loopback, evitando o circuito Cloudflare/Nginx sem gerar links
+        // externos inválidos com 127.0.0.1.
         SUPABASE_URL: env.publicUrl,
+        SUPABASE_INTERNAL_URL: `http://127.0.0.1:${env.port}`,
         SUPABASE_ANON_KEY: env.auth.anonKey,
         SUPABASE_SERVICE_ROLE_KEY: env.auth.serviceRoleKey,
         FN_PORT: String(port),
@@ -144,6 +150,7 @@ function startFunction(name: string, entry: string): RunningFunction {
     process: child,
     ready: spawnReady.then(() => waitForPort(port)),
     startedAt: Date.now(),
+    lastUsedAt: Date.now(),
   };
 
   running.set(name, entryRecord);
@@ -186,6 +193,7 @@ functionsRouter.all("/:name", async (req, res) => {
   }
 
   const target = await ensureFunction(name);
+  target.lastUsedAt = Date.now();
 
   // Repassamos corpo e headers sem alterar: as funções validam assinatura de
   // webhook (Meta, Stripe, InfiniPay) sobre o payload bruto.
@@ -217,13 +225,29 @@ functionsRouter.all("/:name", async (req, res) => {
 
   res.status(upstream.status);
   upstream.headers.forEach((value, key) => {
-    if (key.toLowerCase() === "content-encoding") return;
+    const normalized = key.toLowerCase();
+    // O CORS é definido uma única vez pelo Express. Muitas funções antigas
+    // retornam `Allow-Origin: *`, que sobrescrevia a origem refletida pelo
+    // proxy e fazia o navegador rejeitar a resposta real após o preflight.
+    if (normalized === "content-encoding" || normalized === "vary" || normalized.startsWith("access-control-")) return;
     res.setHeader(key, value);
   });
 
   const payload = Buffer.from(await upstream.arrayBuffer());
   res.end(payload);
 });
+
+// Cada função é um processo Deno. Remover processos ociosos evita que as 162
+// funções se acumulem até o PM2 reiniciar a API por falta de memória.
+const reaper = setInterval(() => {
+  const cutoff = Date.now() - env.functions.idleTimeoutMs;
+  for (const [name, fn] of running.entries()) {
+    if (fn.lastUsedAt >= cutoff) continue;
+    fn.process.kill("SIGTERM");
+    running.delete(name);
+  }
+}, Math.min(env.functions.idleTimeoutMs, 60_000));
+reaper.unref();
 
 /** Diagnóstico: quais funções estão no ar e há quanto tempo. */
 export function functionsStatus() {
