@@ -138,12 +138,19 @@ ok "Backend e frontend com dependências instaladas."
 # baixar módulos e exceder o timeout do proxy.
 if command -v deno >/dev/null 2>&1; then
   step "Preparando as funções locais"
-  if timeout 600 deno cache supabase/functions/*/index.ts; then
+  # --config supabase/functions/deno.json define nodeModulesDir=none. Sem isso o
+  # Deno 2 usa o modo "manual" (por causa do package.json da raiz) e falha em
+  # todo import npm: que não esteja em node_modules — exatamente o erro que
+  # deixava /functions/v1 sem login e sem vídeo.
+  if timeout 900 deno cache --config supabase/functions/deno.json supabase/functions/*/index.ts; then
     ok "Imports das Edge Functions armazenados no cache local."
+  elif [ "$CUTOVER" = true ]; then
+    fail "Imports das Edge Functions não resolveram. Corte bloqueado: login e vídeos dependem deles."
   else
     warn "Algum import não pôde ser pré-carregado; o backend fará nova tentativa sob demanda."
   fi
 fi
+
 
 
 # ---------- 3. Banco de dados ----------
