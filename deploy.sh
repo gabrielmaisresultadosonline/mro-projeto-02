@@ -169,6 +169,22 @@ for attempt in $(seq 1 20); do
   sleep 1
 done
 
+# Recarrega o Nginx (site estático em dist/) para servir o build novo.
+command -v systemctl >/dev/null 2>&1 && sudo systemctl reload nginx && ok "Nginx recarregado."
+
+if [ "$CUTOVER" = true ]; then
+  # Confere de fato pela porta pública se a API responde com a chave anônima:
+  # é isso que o navegador vai fazer em cada página.
+  curl -sf --max-time 5 -H "apikey: $ANON_KEY" -H "Authorization: Bearer $ANON_KEY" \
+    "http://127.0.0.1:${PORT_LOCAL}/rest/v1/hub_products?select=id&limit=1" >/dev/null \
+    && ok "REST respondendo com a chave anônima do site." \
+    || warn "REST não respondeu como esperado — confira RLS/ANON_KEY antes de divulgar."
+fi
+
 echo -e "\n${GREEN}═══ Deploy concluído ═══${NC}"
-[ "$CUTOVER" = true ] && echo -e "${YELLOW}Corte final aplicado: as URLs de mídia agora apontam para a VPS.${NC}"
+if [ "$CUTOVER" = true ]; then
+  echo -e "${YELLOW}Corte final aplicado: banco, mídias E site agora no PostgreSQL da VPS.${NC}"
+  echo "O Supabase segue intacto como backup. Para reverter só o site: ./deploy.sh --voltar"
+fi
 exit 0
+
