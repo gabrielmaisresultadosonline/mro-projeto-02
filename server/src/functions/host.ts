@@ -14,6 +14,7 @@
 
 import { Router } from "express";
 import { spawn, type ChildProcess } from "node:child_process";
+import { accessSync, constants } from "node:fs";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -34,6 +35,36 @@ interface RunningFunction {
 
 const running = new Map<string, RunningFunction>();
 let nextPort = env.functions.basePort;
+
+/**
+ * Resolve o Deno uma vez por inicialização. O deploy pode instalá-lo em
+ * /usr/local/bin ou no diretório do usuário; não dependemos do PATH reduzido
+ * que o PM2 normalmente fornece.
+ */
+function resolveDenoBin(): string {
+  const pathCandidates = (process.env.PATH ?? "")
+    .split(path.delimiter)
+    .filter(Boolean)
+    .map((directory) => path.join(directory, "deno"));
+  const candidates = [
+    env.functions.denoBin === "deno" ? "" : env.functions.denoBin,
+    "/usr/local/bin/deno",
+    process.env.HOME ? path.join(process.env.HOME, ".deno/bin/deno") : "",
+    ...pathCandidates,
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    try {
+      accessSync(candidate, constants.X_OK);
+      return candidate;
+    } catch {
+      // Tenta o próximo local conhecido.
+    }
+  }
+  return "";
+}
+
+const denoBin = resolveDenoBin();
 
 function isValidFunctionName(name: string): boolean {
   return /^[a-z0-9][a-z0-9-_]*$/i.test(name) && !name.startsWith("_");
@@ -62,15 +93,24 @@ async function waitForPort(port: number, timeoutMs = 25_000): Promise<void> {
 }
 
 function startFunction(name: string, entry: string): RunningFunction {
+  if (!denoBin) {
+    throw new RestError(503, "Runtime Deno indisponível no servidor.");
+  }
   const port = nextPort;
   nextPort += 1;
 
   const child = spawn(
-    env.functions.denoBin,
+    denoBin,
     ["run", "--allow-all", "--no-prompt", runnerPath, entry],
     {
       env: {
         ...process.env,
+        // As funções originais usam estes nomes. No backend próprio eles devem
+        // sempre apontar para a VPS, mesmo se server/.env ainda tiver aliases
+        // antigos ou vazios da origem legada.
+        SUPABASE_URL: env.publicUrl,
+        SUPABASE_ANON_KEY: env.auth.anonKey,
+        SUPABASE_SERVICE_ROLE_KEY: env.auth.serviceRoleKey,
         FN_PORT: String(port),
         FN_NAME: name,
       },
@@ -78,11 +118,20 @@ function startFunction(name: string, entry: string): RunningFunction {
     },
   );
 
+  const spawnReady = new Promise<void>((resolve, reject) => {
+    child.once("spawn", resolve);
+    child.once("error", reject);
+  });
+
   child.stdout?.on("data", (chunk) => {
     process.stdout.write(`[fn:${name}] ${chunk}`);
   });
   child.stderr?.on("data", (chunk) => {
     process.stderr.write(`[fn:${name}:err] ${chunk}`);
+  });
+  child.on("error", (error) => {
+    console.error(`[fn:${name}] não foi possível iniciar ${denoBin}:`, error.message);
+    running.delete(name);
   });
   child.on("exit", (code) => {
     console.warn(`[fn:${name}] processo encerrado (código ${code}); será reiniciado na próxima chamada.`);
@@ -93,7 +142,7 @@ function startFunction(name: string, entry: string): RunningFunction {
     name,
     port,
     process: child,
-    ready: waitForPort(port),
+    ready: spawnReady.then(() => waitForPort(port)),
     startedAt: Date.now(),
   };
 
@@ -194,6 +243,16 @@ export function listAvailableFunctions(): string[] {
     .filter((entry) => functionEntrypoint(entry.name) !== null)
     .map((entry) => entry.name)
     .sort();
+}
+
+export function functionsRuntime(): { denoBin: string; available: boolean } {
+  if (!denoBin) return { denoBin: env.functions.denoBin, available: false };
+  try {
+    accessSync(denoBin, constants.X_OK);
+    return { denoBin, available: true };
+  } catch {
+    return { denoBin, available: false };
+  }
 }
 
 export function shutdownFunctions(): void {
