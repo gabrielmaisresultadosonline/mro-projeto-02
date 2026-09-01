@@ -11,7 +11,9 @@
  *   npm run migrate:all -- --skip-storage
  */
 
+import dns from "node:dns/promises";
 import { pool } from "../src/db.js";
+import { requireLegacy } from "../src/env.js";
 import { migrateSchema } from "./migrate-schema.js";
 import { migrateData } from "./migrate-data.js";
 import { migrateUsers } from "./migrate-users.js";
@@ -19,6 +21,30 @@ import { migrateStorage } from "./migrate-storage.js";
 import { rewriteUrls } from "./rewrite-urls.js";
 import { verify } from "./verify.js";
 import { log } from "./lib/log.js";
+
+/**
+ * A origem legada pode simplesmente não existir mais (projeto Supabase
+ * removido/trocado). Nesse caso não há o que sincronizar: o banco local já é a
+ * fonte da verdade e o corte deve seguir em frente, sem tentar pg_dump.
+ */
+async function legacyReachable(): Promise<boolean> {
+  const { databaseUrl } = requireLegacy();
+  if (!databaseUrl) return false;
+  let host: string;
+  try {
+    host = new URL(databaseUrl).hostname;
+  } catch {
+    return false;
+  }
+  try {
+    // Aceita IPv4 ou IPv6 (o host direto do Supabase costuma ser só IPv6).
+    await dns.lookup(host, { all: true, verbatim: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 
 interface Step {
   name: string;
