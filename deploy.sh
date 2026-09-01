@@ -23,13 +23,29 @@ fail() { echo -e "  ${RED}✗${NC} $1"; exit 1; }
 
 MIGRATE=false
 CUTOVER=false
+VOLTAR=false
+FRONT_ENV=".env.production.local"   # não versionado; tem prioridade no build
 for arg in "$@"; do
   case "$arg" in
     --migrate) MIGRATE=true ;;
     --cutover) MIGRATE=true; CUTOVER=true ;;
-    *) fail "Parâmetro desconhecido: $arg (use --migrate ou --cutover)" ;;
+    --voltar)  VOLTAR=true ;;
+    *) fail "Parâmetro desconhecido: $arg (use --migrate, --cutover ou --voltar)" ;;
   esac
 done
+
+# ---------- Rollback rápido do frontend (não toca no banco nem nos arquivos) ----------
+if [ "$VOLTAR" = true ]; then
+  step "Desfazendo o corte do frontend"
+  rm -f "$FRONT_ENV"
+  npm run build
+  [ -n "${WEB_ROOT:-}" ] && rsync -a --delete dist/ "$WEB_ROOT/"
+  command -v systemctl >/dev/null 2>&1 && sudo systemctl reload nginx || true
+  ok "Site voltou a ler o Supabase. O PostgreSQL da VPS continua intacto."
+  exit 0
+fi
+
+
 
 # ---------- 0. Pré-requisitos ----------
 step "Verificando pré-requisitos"
