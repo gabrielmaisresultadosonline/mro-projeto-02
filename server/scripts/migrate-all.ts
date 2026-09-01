@@ -71,11 +71,21 @@ async function main(): Promise<void> {
 
   console.log("\n\x1b[1m═══ Migração para PostgreSQL próprio (VPS) ═══\x1b[0m");
 
+  // `--sem-origem` força o modo offline; a checagem de DNS o liga sozinho
+  // quando o host da origem não existe mais.
+  const noSource = args.includes("--sem-origem") || !(await legacyReachable());
+  if (noSource) {
+    log.warn(
+      "Origem legada inacessível (host não resolve ou LEGACY_DATABASE_URL vazio). " +
+        "Seguindo apenas com o PostgreSQL local, que já contém os dados sincronizados.",
+    );
+  }
+
   const steps: Step[] = [
-    { name: "schema", run: () => migrateSchema(), skip: onlyStorage },
-    { name: "users", run: () => migrateUsers(), skip: onlyStorage || args.includes("--skip-data") },
-    { name: "data", run: () => migrateData(), skip: onlyStorage || args.includes("--skip-data") },
-    { name: "storage", run: () => migrateStorage(), skip: args.includes("--skip-storage") },
+    { name: "schema", run: () => migrateSchema(), skip: onlyStorage || noSource },
+    { name: "users", run: () => migrateUsers(), skip: onlyStorage || noSource || args.includes("--skip-data") },
+    { name: "data", run: () => migrateData(), skip: onlyStorage || noSource || args.includes("--skip-data") },
+    { name: "storage", run: () => migrateStorage(), skip: noSource || args.includes("--skip-storage") },
     { name: "urls", run: () => rewriteUrls(applyUrls), skip: onlyStorage },
     {
       name: "verify",
@@ -88,9 +98,11 @@ async function main(): Promise<void> {
           log.warn("A origem recebeu alterações durante a sincronização. Rode novamente antes do corte final.");
         }
       },
-      skip: onlyStorage,
+      // Sem origem não há com o que comparar: a conferência perde sentido.
+      skip: onlyStorage || noSource,
     },
   ];
+
 
   const failedSteps: string[] = [];
 
