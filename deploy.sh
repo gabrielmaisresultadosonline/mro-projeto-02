@@ -4,7 +4,10 @@
 #
 #   ./deploy.sh              → atualiza código, banco, backend e frontend
 #   ./deploy.sh --migrate    → o acima + sincroniza dados/arquivos do Supabase
-#   ./deploy.sh --cutover    → corte final: migra, reescreve URLs e valida
+#   ./deploy.sh --cutover    → corte final: migra, reescreve URLs, compila o
+#                              site JÁ no PostgreSQL da VPS e valida
+#   ./deploy.sh --voltar     → desfaz só o corte do frontend (volta ao Supabase)
+
 #
 # Executar na raiz do projeto, na VPS, como o usuário da aplicação.
 # ============================================================
@@ -20,13 +23,29 @@ fail() { echo -e "  ${RED}✗${NC} $1"; exit 1; }
 
 MIGRATE=false
 CUTOVER=false
+VOLTAR=false
+FRONT_ENV=".env.production.local"   # não versionado; tem prioridade no build
 for arg in "$@"; do
   case "$arg" in
     --migrate) MIGRATE=true ;;
     --cutover) MIGRATE=true; CUTOVER=true ;;
-    *) fail "Parâmetro desconhecido: $arg (use --migrate ou --cutover)" ;;
+    --voltar)  VOLTAR=true ;;
+    *) fail "Parâmetro desconhecido: $arg (use --migrate, --cutover ou --voltar)" ;;
   esac
 done
+
+# ---------- Rollback rápido do frontend (não toca no banco nem nos arquivos) ----------
+if [ "$VOLTAR" = true ]; then
+  step "Desfazendo o corte do frontend"
+  rm -f "$FRONT_ENV"
+  npm run build
+  [ -n "${WEB_ROOT:-}" ] && rsync -a --delete dist/ "$WEB_ROOT/"
+  command -v systemctl >/dev/null 2>&1 && sudo systemctl reload nginx || true
+  ok "Site voltou a ler o Supabase. O PostgreSQL da VPS continua intacto."
+  exit 0
+fi
+
+
 
 # ---------- 0. Pré-requisitos ----------
 step "Verificando pré-requisitos"
@@ -90,10 +109,30 @@ chmod 750 "$STORAGE_DIR"
 ok "Uploads em $STORAGE_DIR ($(du -sh "$STORAGE_DIR" 2>/dev/null | cut -f1) usados)."
 
 # ---------- 6. Frontend ----------
+# No corte final o site precisa ser compilado com VITE_USE_LOCAL_BACKEND=true;
+# sem isso as 213 páginas continuariam falando com o Supabase mesmo já tendo o
+# banco e as mídias na VPS. As chaves vêm do server/.env que já está no disco.
+if [ "$CUTOVER" = true ]; then
+  step "Apontando o site para o backend próprio"
+  [ -n "${ANON_KEY:-}" ] || fail "ANON_KEY vazio em server/.env — é a chave que o site usa para falar com a API."
+  API_URL_FINAL="${PUBLIC_API_URL:-https://api.maisresultadosonline.com.br}"
+  cat > "$FRONT_ENV" <<EOF
+# Gerado por deploy.sh --cutover em $(date -Is). Remova com ./deploy.sh --voltar.
+VITE_USE_LOCAL_BACKEND=true
+VITE_API_URL=$API_URL_FINAL
+VITE_API_ANON_KEY=$ANON_KEY
+VITE_SUPABASE_URL=$API_URL_FINAL
+VITE_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY
+EOF
+  chmod 600 "$FRONT_ENV"
+  ok "Build usará $API_URL_FINAL."
+fi
+
 step "Compilando o site"
 npm run build
 [ -d dist ] || fail "Build não gerou a pasta dist/."
 ok "Site compilado ($(du -sh dist | cut -f1))."
+
 
 if [ -n "${WEB_ROOT:-}" ]; then
   rsync -a --delete dist/ "$WEB_ROOT/"
@@ -130,6 +169,22 @@ for attempt in $(seq 1 20); do
   sleep 1
 done
 
+# Recarrega o Nginx (site estático em dist/) para servir o build novo.
+command -v systemctl >/dev/null 2>&1 && sudo systemctl reload nginx && ok "Nginx recarregado."
+
+if [ "$CUTOVER" = true ]; then
+  # Confere de fato pela porta pública se a API responde com a chave anônima:
+  # é isso que o navegador vai fazer em cada página.
+  curl -sf --max-time 5 -H "apikey: $ANON_KEY" -H "Authorization: Bearer $ANON_KEY" \
+    "http://127.0.0.1:${PORT_LOCAL}/rest/v1/hub_products?select=id&limit=1" >/dev/null \
+    && ok "REST respondendo com a chave anônima do site." \
+    || warn "REST não respondeu como esperado — confira RLS/ANON_KEY antes de divulgar."
+fi
+
 echo -e "\n${GREEN}═══ Deploy concluído ═══${NC}"
-[ "$CUTOVER" = true ] && echo -e "${YELLOW}Corte final aplicado: as URLs de mídia agora apontam para a VPS.${NC}"
+if [ "$CUTOVER" = true ]; then
+  echo -e "${YELLOW}Corte final aplicado: banco, mídias E site agora no PostgreSQL da VPS.${NC}"
+  echo "O Supabase segue intacto como backup. Para reverter só o site: ./deploy.sh --voltar"
+fi
 exit 0
+
