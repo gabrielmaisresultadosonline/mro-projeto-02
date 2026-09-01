@@ -9,6 +9,9 @@
  *   /realtime/v1     → WebSocket sobre LISTEN/NOTIFY
  */
 
+// Encaminha rejeições de handlers async ao middleware de erro do Express 4.
+// Sem este patch, um timeout de função encerra a conexão e vira 502 sem CORS.
+import "express-async-errors";
 import express, { type NextFunction, type Request, type Response } from "express";
 import cors from "cors";
 import http from "node:http";
