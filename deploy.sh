@@ -75,6 +75,14 @@ if ! command -v deno >/dev/null 2>&1; then
 fi
 
 if command -v deno >/dev/null 2>&1; then
+  DENO_PATH="$(command -v deno)"
+  # O daemon do PM2 pode ter um PATH diferente do shell. Persistimos o caminho
+  # absoluto sem alterar as demais variáveis ou segredos existentes.
+  if grep -q '^DENO_BIN=' server/.env; then
+    sed -i "s|^DENO_BIN=.*|DENO_BIN=$DENO_PATH|" server/.env
+  else
+    printf '\nDENO_BIN=%s\n' "$DENO_PATH" >> server/.env
+  fi
   ok "Deno disponível ($(deno --version | head -1))."
 elif [ "$CUTOVER" = true ]; then
   fail "Deno não pôde ser instalado. Corte bloqueado para não publicar logins sem /functions/v1."

@@ -18,7 +18,12 @@ module.exports = {
       min_uptime: "20s",
       max_memory_restart: "1G",
       kill_timeout: 10000,
-      env: { NODE_ENV: "production" },
+      env: {
+        NODE_ENV: "production",
+        // PM2 iniciado pelo systemd costuma herdar um PATH mínimo. As funções
+        // Deno precisam enxergar o binário instalado pelo deploy.
+        PATH: `/usr/local/bin:${process.env.HOME || "/root"}/.deno/bin:${process.env.PATH || "/usr/bin:/bin"}`,
+      },
       error_file: "/var/log/mro/api-error.log",
       out_file: "/var/log/mro/api-out.log",
       time: true,
