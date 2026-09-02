@@ -31,6 +31,30 @@ const upload = multer({
 });
 
 /**
+ * Confirma no boot que o mesmo processo do backend consegue gravar no storage.
+ * Assim uma permissão incorreta é detectada antes de o painel receber HTTP 500.
+ */
+export async function ensureStorageWritable(): Promise<void> {
+  const probeDirectory = path.join(env.storage.root, ".health");
+  const probeFile = path.join(probeDirectory, `write-${process.pid}.tmp`);
+  await fs.mkdir(probeDirectory, { recursive: true });
+  await fs.writeFile(probeFile, "ok", { encoding: "utf8" });
+  await fs.rm(probeFile, { force: true });
+}
+
+function storageWriteError(error: unknown, bucket: string, name: string): RestError {
+  const fsError = error as NodeJS.ErrnoException;
+  const code = typeof fsError?.code === "string" ? fsError.code : "STORAGE_WRITE_FAILED";
+  console.error(`[storage] falha ao gravar ${bucket}/${name}:`, error);
+  return new RestError(
+    507,
+    "Não foi possível gravar o arquivo no armazenamento local.",
+    code,
+    `Verifique espaço e permissões de ${env.storage.root}.`,
+  );
+}
+
+/**
  * Impede path traversal. Um `../` aceito aqui daria leitura/escrita arbitrária
  * no servidor — é o ponto mais sensível de todo o storage.
  */
@@ -158,8 +182,20 @@ const handleObjectUpload = async (req: Request, res: import("express").Response)
     throw new RestError(400, "Corpo do upload vazio.");
   }
 
-  await fs.mkdir(path.dirname(absolute), { recursive: true });
-  await fs.writeFile(absolute, body);
+  try {
+    await fs.mkdir(path.dirname(absolute), { recursive: true });
+    // Grava primeiro em arquivo temporário e só então publica o objeto. Isso
+    // evita imagens parciais se a conexão cair durante uma escrita futura.
+    const temporary = `${absolute}.${process.pid}.${crypto.randomUUID()}.uploading`;
+    try {
+      await fs.writeFile(temporary, body);
+      await fs.rename(temporary, absolute);
+    } finally {
+      await fs.rm(temporary, { force: true }).catch(() => undefined);
+    }
+  } catch (error) {
+    throw storageWriteError(error, bucket, name);
+  }
 
   const detectedMime = mime.lookup(name);
   const contentType =

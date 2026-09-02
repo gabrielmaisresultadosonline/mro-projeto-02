@@ -238,6 +238,10 @@ sudo mkdir -p "$STORAGE_DIR"
 sudo chown -R "$(id -u):$(id -g)" "$STORAGE_DIR"
 sudo find "$STORAGE_DIR" -type d -exec chmod 755 {} +
 sudo find "$STORAGE_DIR" -type f -exec chmod 644 {} +
+mkdir -p "$STORAGE_DIR/assets/announcements"
+STORAGE_PROBE="$STORAGE_DIR/assets/announcements/.deploy-write-test"
+printf 'ok' > "$STORAGE_PROBE" || fail "Sem permissão de escrita em $STORAGE_DIR/assets/announcements."
+rm -f "$STORAGE_PROBE"
 ok "Uploads em $STORAGE_DIR ($(du -sh "$STORAGE_DIR" 2>/dev/null | cut -f1) usados)."
 
 # ---------- 6. Frontend ----------
