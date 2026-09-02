@@ -76,12 +76,22 @@ fi
 
 if command -v deno >/dev/null 2>&1; then
   DENO_PATH="$(command -v deno)"
+  # O PM2 iniciado pelo systemd pode não herdar HOME. Um diretório fixo garante
+  # que o cache preparado aqui seja o mesmo usado pelas funções em produção.
+  export DENO_DIR="${DENO_DIR:-/var/cache/mro-deno}"
+  sudo mkdir -p "$DENO_DIR"
+  sudo chown -R "$(id -u):$(id -g)" "$DENO_DIR"
   # O daemon do PM2 pode ter um PATH diferente do shell. Persistimos o caminho
   # absoluto sem alterar as demais variáveis ou segredos existentes.
   if grep -q '^DENO_BIN=' server/.env; then
     sed -i "s|^DENO_BIN=.*|DENO_BIN=$DENO_PATH|" server/.env
   else
     printf '\nDENO_BIN=%s\n' "$DENO_PATH" >> server/.env
+  fi
+  if grep -q '^DENO_DIR=' server/.env; then
+    sed -i "s|^DENO_DIR=.*|DENO_DIR=$DENO_DIR|" server/.env
+  else
+    printf 'DENO_DIR=%s\n' "$DENO_DIR" >> server/.env
   fi
   ok "Deno disponível ($(deno --version | head -1))."
 elif [ "$CUTOVER" = true ]; then
@@ -274,17 +284,19 @@ done
 # O restante da configuração (incluindo certificados TLS) é preservado.
 if command -v nginx >/dev/null 2>&1 && [ -d /etc/nginx/sites-enabled ]; then
   step "Configurando streaming de mídias no Nginx"
-  API_NGINX_CONFIG="$(sudo grep -rl 'server_name api\.maisresultadosonline\.com\.br' /etc/nginx/sites-enabled /etc/nginx/conf.d 2>/dev/null | head -1 || true)"
+  API_DOMAIN="$(echo "${PUBLIC_API_URL:-api.maisresultadosonline.com.br}" | sed -E 's|https?://||; s|/.*|')"
+  # -R segue os links de sites-enabled. A busca ampla também cobre instalações
+  # que mantêm o vhost diretamente em nginx.conf ou apenas em sites-available.
+  API_NGINX_CONFIG="$(sudo grep -RlE --include='*.conf' --include='*mro*' --include='*api*' \
+    "server_name.*$API_DOMAIN" /etc/nginx 2>/dev/null \
+    | grep -vE '\.(pre-media-hotfix|bak|backup|disabled)$' | head -1 || true)"
   if [ -n "$API_NGINX_CONFIG" ]; then
-    sudo python3 - "$API_NGINX_CONFIG" <<'PY'
-import pathlib
-import re
-import sys
-
-config = pathlib.Path(sys.argv[1])
-text = config.read_text()
-location = re.compile(r"(?ms)^\s*location\s+/storage/v1/object/public/\s*\{[^{}]*\}")
-replacement = """    location /storage/v1/object/public/ {
+    sudo python3 - "$API_NGINX_CONFIG" "$API_DOMAIN" <<'PY'
+import pathlib, re, sys
+config_path = pathlib.Path(sys.argv[1])
+api_domain = sys.argv[2]
+text = config_path.read_text()
+storage_block = """    location /storage/v1/object/public/ {
         proxy_pass http://127.0.0.1:8787;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -296,21 +308,47 @@ replacement = """    location /storage/v1/object/public/ {
         proxy_buffering off;
         proxy_request_buffering off;
         proxy_read_timeout 600s;
+        add_header 'Access-Control-Allow-Origin' '*' always;
     }"""
-
-if location.search(text):
-    updated = location.sub(replacement, text, count=1)
+functions_block = """    location /functions/v1/ {
+        proxy_pass http://127.0.0.1:8787;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_request_buffering off;
+        proxy_read_timeout 120s;
+        proxy_connect_timeout 10s;
+        add_header 'Access-Control-Allow-Origin' $http_origin always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+    }"""
+loc_regex = re.compile(r"(?ms)^\s*location\s+/storage/v1/object/public/\s*\{[^{}]*\}")
+fn_regex = re.compile(r"(?ms)^\s*location\s+/functions/v1/?\s*\{[^{}]*\}")
+if loc_regex.search(text):
+    updated = loc_regex.sub(storage_block, text, count=1)
 else:
-    # Sem uma location específica, a location / já encaminha a mídia ao Node.
-    updated = text
-
+    server_blocks = re.split(r"(server\s*\{)", text)
+    new_parts, found = [], False
+    for i in range(len(server_blocks)):
+        part = server_blocks[i]
+        if not found and api_domain in part:
+            last_brace = part.rfind("}")
+            if last_brace != -1: part = part[:last_brace] + "\n" + storage_block + "\n" + part[last_brace:]; found = True
+        new_parts.append(part)
+    updated = "".join(new_parts)
+if fn_regex.search(updated):
+    updated = fn_regex.sub(functions_block, updated, count=1)
+else:
+    generic_location = re.search(r"(?m)^\s*location\s+/\s*\{", updated)
+    if generic_location:
+        updated = updated[:generic_location.start()] + functions_block + "\n\n" + updated[generic_location.start():]
 if updated != text:
-    backup = config.with_suffix(config.suffix + ".pre-media-hotfix")
-    backup.write_text(text)
-    config.write_text(updated)
+    config_path.with_suffix(config_path.suffix + ".pre-media-hotfix").write_text(text)
+    config_path.write_text(updated)
 PY
     sudo nginx -t || fail "Configuração do Nginx inválida; o arquivo anterior foi preservado em .pre-media-hotfix."
-    ok "Mídias públicas encaminhadas ao backend com suporte a Range/206."
+    ok "Funções e mídias públicas encaminhadas ao backend local."
   else
     warn "Virtual host da API não localizado; preservando a configuração atual."
   fi
@@ -343,18 +381,26 @@ if [ "$CUTOVER" = true ]; then
 
   # O login e várias áreas dependem de Edge Functions. Um /health saudável não
   # basta: iniciamos uma função real pelo mesmo proxy usado no navegador.
-  if curl -sf --max-time 35 -X POST \
+  FUNCTION_CHECK_BODY="$(mktemp)"
+  FUNCTION_CHECK_STATUS="$(curl -sS --max-time 75 -o "$FUNCTION_CHECK_BODY" -w '%{http_code}' -X POST \
       -H "Origin: https://maisresultadosonline.com.br" \
       -H "apikey: $ANON_KEY" \
       -H "Authorization: Bearer $ANON_KEY" \
       -H "Content-Type: application/json" \
       --data '{"action":"verify_user","username":"__deploy_healthcheck__"}' \
-      "http://127.0.0.1:${PORT_LOCAL}/functions/v1/mro-tool-api" >/dev/null; then
+      "http://127.0.0.1:${PORT_LOCAL}/functions/v1/mro-tool-api" || true)"
+  if [[ "$FUNCTION_CHECK_STATUS" =~ ^[234] ]]; then
     ok "Edge Function de login iniciou e respondeu pelo proxy local."
   else
-    tail -n 80 /var/log/mro/api-error.log 2>/dev/null || true
+    echo "  Resposta local (${FUNCTION_CHECK_STATUS:-sem status}):"
+    head -c 4000 "$FUNCTION_CHECK_BODY" 2>/dev/null || true; echo
+    echo "  Últimas saídas do backend:"
+    tail -n 100 /var/log/mro/api-out.log 2>/dev/null || true
+    tail -n 100 /var/log/mro/api-error.log 2>/dev/null || true
+    rm -f "$FUNCTION_CHECK_BODY"
     fail "Edge Functions indisponíveis; corte bloqueado para evitar falha de login."
   fi
+  rm -f "$FUNCTION_CHECK_BODY"
 
   # Esta função consulta o PostgreSQL e entrega a configuração dos vídeos;
   # portanto testa de uma vez proxy, runtime Deno e acesso interno ao REST.
