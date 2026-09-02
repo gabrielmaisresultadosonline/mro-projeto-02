@@ -37,6 +37,7 @@ import RenddxLeadsPanel from '@/components/admin/RenddxLeadsPanel';
 import LotarGruposPanel from '@/components/admin/LotarGruposPanel';
 import DumpPanel from '@/components/admin/DumpPanel';
 import MigrationEnvPanel from '@/components/admin/MigrationEnvPanel';
+import TokensPanel from '@/components/admin/TokensPanel';
 
 import {
   Users, Settings, Video, LogOut, Search, 
