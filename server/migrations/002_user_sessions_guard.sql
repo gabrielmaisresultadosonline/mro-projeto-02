@@ -45,19 +45,8 @@ ALTER TABLE public.user_sessions ADD COLUMN IF NOT EXISTS last_access TIMESTAMPT
 ALTER TABLE public.user_sessions ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
 ALTER TABLE public.user_sessions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-     WHERE conrelid = 'public.user_sessions'::regclass
-       AND contype = 'u'
-       AND conname = 'user_sessions_squarecloud_username_key'
-  ) THEN
-    ALTER TABLE public.user_sessions
-      ADD CONSTRAINT user_sessions_squarecloud_username_key UNIQUE (squarecloud_username);
-  END IF;
-END $$;
-
+-- Índice não exclusivo: instalações antigas podem conter duplicatas legítimas.
+-- O deploy não deve apagar dados nem falhar tentando impor unicidade retroativa.
 CREATE INDEX IF NOT EXISTS user_sessions_squarecloud_username_idx
   ON public.user_sessions (squarecloud_username);
 
