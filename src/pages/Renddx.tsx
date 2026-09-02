@@ -63,9 +63,9 @@ const Renddx = () => {
 
   const planConfig = {
     label: 'MRO para Empresas',
-    amount: 97,
+    amount: 67,
     planType: 'monthly',
-    priceDisplay: 'R$97',
+    priceDisplay: 'R$67',
     durationDisplay: '30 dias de acesso',
   };
 
@@ -200,7 +200,7 @@ const Renddx = () => {
       if (checkError) { toast.error("Erro ao criar link de pagamento. Tente novamente."); return; }
       if (checkData.userExists) { toast.error("Este nome de usuário já está em uso. Escolha outro."); setUsernameError("Usuário já existe, escolha outro"); return; }
       if (!checkData.success) { toast.error(checkData.error || "Erro ao criar pagamento"); return; }
-      trackInitiateCheckout(`MRO para Empresas - 30 dias - R$97`, totalAmount);
+      trackInitiateCheckout(`MRO para Empresas - 30 dias - R$67`, totalAmount);
       window.location.href = checkData.payment_link;
     } catch (error) { toast.error("Erro ao processar. Tente novamente."); } finally { setLoading(false); }
   };
@@ -387,9 +387,10 @@ const Renddx = () => {
               <div className="mt-8 flex flex-col items-center gap-4">
                 <div className="flex flex-col items-center">
                   <span className="text-zinc-400 text-sm uppercase font-bold tracking-widest">30 DIAS DE ACESSO COM SUPORTE INCLUSO</span>
+                  <span className="text-zinc-500 text-base font-bold line-through">De R$97</span>
                   <div className="flex items-baseline gap-1">
                     <span className="text-2xl font-bold text-green-500">R$</span>
-                    <span className="text-6xl font-black text-green-500">97</span>
+                    <span className="text-6xl font-black text-green-500">67</span>
                     <span className="text-zinc-400 text-sm font-bold">/30 dias</span>
                   </div>
                 </div>
@@ -468,8 +469,8 @@ const Renddx = () => {
           <h3 className="text-2xl font-bold mb-4">ACESSO COMPLETO AO MRO</h3>
           <div className="text-zinc-400 text-sm font-bold mb-2 uppercase tracking-widest">Plano 30 Dias</div>
           <div className="flex flex-col items-center mb-2">
-            <span className="text-zinc-500 text-sm line-through">De R$297</span>
-            <div className="text-5xl font-black text-green-400">R$97</div>
+            <span className="text-zinc-500 text-sm line-through">De R$97</span>
+            <div className="text-5xl font-black text-green-400">R$67</div>
           </div>
           <p className="text-zinc-400 mb-6">30 dias de acesso • suporte já incluso</p>
           <ul className="text-left space-y-3 mb-8 text-zinc-300 text-sm">
