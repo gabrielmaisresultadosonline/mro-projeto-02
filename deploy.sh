@@ -369,6 +369,10 @@ text = re.sub(
 )
 storage_block = """    location /storage/v1/ {
         client_max_body_size 300m;
+        # Declarar qualquer add_header neste nível interrompe a herança dos
+        # add_header definidos no bloco server/http. O CORS real continua vindo
+        # intacto do backend por proxy_pass.
+        add_header X-Cors-Owner "backend" always;
         proxy_pass http://127.0.0.1:8787;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -383,6 +387,7 @@ storage_block = """    location /storage/v1/ {
         proxy_read_timeout 600s;
     }"""
 functions_block = """    location /functions/v1/ {
+        add_header X-Cors-Owner "backend" always;
         proxy_pass http://127.0.0.1:8787;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -477,6 +482,9 @@ if [ "$CUTOVER" = true ]; then
   else
     echo "  OPTIONS storage: HTTP ${STORAGE_CORS_STATUS:-sem status}; headers CORS: $STORAGE_CORS_COUNT; origem: ${STORAGE_CORS_VALUE:-ausente}"
     cat "$STORAGE_CORS_HEADERS" 2>/dev/null || true
+    if [ "$STORAGE_CORS_COUNT" -gt 1 ] && grep -qi '^server: cloudflare' "$STORAGE_CORS_HEADERS"; then
+      warn "Se X-Cors-Owner: backend aparecer acima, o '*' não vem mais do Nginx: remova uma regra de Response Header Transform do proxy Cloudflare que adiciona Access-Control-Allow-Origin."
+    fi
     rm -f "$STORAGE_CORS_HEADERS"
     fail "CORS público do upload inválido; deploy bloqueado para evitar falha no /admin."
   fi
