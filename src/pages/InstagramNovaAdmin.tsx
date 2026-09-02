@@ -951,6 +951,43 @@ Participe também do nosso GRUPO DE AVISOS
     toast.info("Logout realizado");
   };
 
+  /**
+   * Grava um log durável no banco (aba "Logs") para cada cadastro/pagamento
+   * reconhecido — e também para os que falharem, com o motivo do erro.
+   * Nunca envia senhas ou tokens.
+   */
+  const logPanelEvent = async (entry: {
+    event_type: string;
+    status: string;
+    order?: MROOrder | null;
+    result_message?: string;
+    order_found?: boolean;
+    payload?: Record<string, unknown>;
+  }) => {
+    try {
+      const token = getAdminSessionToken();
+      if (!token) return;
+      await supabase.functions.invoke("instagram-admin", {
+        body: {
+          action: "logEvent",
+          token,
+          event_type: entry.event_type,
+          status: entry.status,
+          order_nsu: entry.order?.nsu_order ?? null,
+          email: entry.order?.email ?? null,
+          username: entry.order?.username ?? null,
+          amount: entry.order ? Number(entry.order.amount) || null : null,
+          order_id: entry.order?.id ?? null,
+          order_found: entry.order_found ?? Boolean(entry.order),
+          result_message: entry.result_message ?? null,
+          payload: entry.payload ?? null,
+        },
+      });
+    } catch (error) {
+      console.warn("[LOG] Falha ao registrar log do painel:", error);
+    }
+  };
+
   const loadOrders = async (
     tokenOverride?: string,
     options: { silent?: boolean } = {},
