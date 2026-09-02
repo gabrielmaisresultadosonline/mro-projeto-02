@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { adminSupabase as supabase } from '@/lib/adminSupabase';
+import { storageAssetUrl } from '@/lib/assetUrl';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -258,7 +259,7 @@ export default function HubProductsPanel() {
                   <div className="flex items-center gap-3">
                     {editing.thumb_url ? (
                       <img
-                        src={editing.thumb_url}
+                        src={storageAssetUrl(editing.thumb_url)}
                         alt="Capa do produto"
                         className="h-16 w-16 rounded-md object-cover border border-border"
                       />
@@ -457,7 +458,7 @@ export default function HubProductsPanel() {
                   <div className="flex items-center gap-3">
                     <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
                       {product.thumb_url ? (
-                        <img src={product.thumb_url} alt={product.title} className="h-full w-full object-cover" />
+                        <img src={storageAssetUrl(product.thumb_url)} alt={product.title} className="h-full w-full object-cover" />
                       ) : (
                         <Package className="h-5 w-5 text-muted-foreground" />
                       )}
