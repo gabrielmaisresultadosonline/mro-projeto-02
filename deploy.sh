@@ -233,8 +233,11 @@ fi
 step "Preparando o diretório de uploads"
 STORAGE_DIR="${STORAGE_ROOT:-/var/www/uploads}"
 sudo mkdir -p "$STORAGE_DIR"
+# PM2 roda com o mesmo usuário que executa este deploy. Garantimos escrita em
+# toda a árvore para uploads novos e leitura pelo Nginx sem apagar nada.
 sudo chown -R "$(id -u):$(id -g)" "$STORAGE_DIR"
-sudo chmod -R u+rwX,go+rX "$STORAGE_DIR"
+sudo find "$STORAGE_DIR" -type d -exec chmod 755 {} +
+sudo find "$STORAGE_DIR" -type f -exec chmod 644 {} +
 ok "Uploads em $STORAGE_DIR ($(du -sh "$STORAGE_DIR" 2>/dev/null | cut -f1) usados)."
 
 # ---------- 6. Frontend ----------

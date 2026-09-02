@@ -52,8 +52,9 @@ app.use(
 
 // Webhooks precisam do corpo bruto para validar assinatura (Meta/Stripe/InfiniPay).
 app.use("/functions/v1", express.raw({ type: "*/*", limit: "50mb" }));
-// Upload binário direto (SDK de storage envia o arquivo no corpo).
-app.use("/storage/v1", express.raw({ type: ["application/octet-stream", "video/*", "image/*", "audio/*"], limit: "300mb" }));
+// O SDK envia o objeto diretamente no corpo e conserva seu Content-Type. Isso
+// inclui JSONs do painel, PDFs e formatos ainda desconhecidos, não só mídia.
+app.use("/storage/v1", express.raw({ type: "*/*", limit: "300mb" }));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
