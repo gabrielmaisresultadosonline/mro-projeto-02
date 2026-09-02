@@ -1243,6 +1243,13 @@ Participe também do nosso GRUPO DE AVISOS
 
       if (data.status === "completed" || data.status === "paid") {
         toast.success(data.status === "completed" ? "Pagamento confirmado e acesso liberado!" : "Pagamento confirmado! Processando acesso...");
+        void logPanelEvent({
+          event_type: "payment_manual_check",
+          status: "confirmed",
+          order,
+          result_message: `Pagamento reconhecido manualmente (status ${data.status})`,
+        });
+        
         
         // Dispara Purchase no Pixel (uma única vez por pedido)
         const firedKey = `mro_pixel_fired_${order.id}`;
