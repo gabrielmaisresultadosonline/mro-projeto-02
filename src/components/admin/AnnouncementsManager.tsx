@@ -48,6 +48,42 @@ interface AnnouncementsManagerProps {
   filterArea?: 'instagram' | 'zapmro';
 }
 
+/** Cache local para o painel abrir instantaneamente (revalida em seguida). */
+const CACHE_KEY = 'mro:admin:announcements:cache:v1';
+
+const persistCache = (announcements: Announcement[], extensions: string[]) => {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ announcements, extensions }));
+  } catch {
+    // Quota cheia não deve quebrar o painel.
+  }
+};
+
+/**
+ * Reduz a imagem no navegador antes do upload. Um print de 4MB virava um POST
+ * lento (às vezes "travado"); com isso o envio fica em dezenas de KB.
+ */
+const compressImage = async (file: File): Promise<Blob> => {
+  if (file.type === 'image/gif' || file.size <= 300 * 1024) return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const maxSide = 1280;
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', 0.82),
+    );
+    return blob && blob.size < file.size ? blob : file;
+  } catch {
+    return file;
+  }
+};
+
 const AnnouncementsManager = ({ filterArea }: AnnouncementsManagerProps = {}) => {
   const { toast } = useToast();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
