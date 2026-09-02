@@ -78,20 +78,43 @@ export const env = {
      * Origens remotas usadas como fallback quando o arquivo ainda não existe
      * no disco (mídias que não foram baixadas na migração). Evita vídeo/imagem
      * quebrada: servimos do remoto e gravamos em disco no primeiro acesso.
+     *
+     * Importante: depois do corte, SUPABASE_URL pode apontar para o próprio
+     * domínio local. Se isso entrar na lista, o fallback faz requisição para
+     * si mesmo e a imagem continua 404 (foi o que quebrou as capas). Por isso
+     * filtramos qualquer origem que seja o próprio backend.
      */
-    fallbackOrigins: optional(
-      "STORAGE_FALLBACK_URLS",
-      [
-        process.env.LEGACY_SUPABASE_URL ?? "",
-        process.env.SUPABASE_URL ?? "",
-        process.env.VITE_SUPABASE_URL ?? "",
-      ]
-        .filter(Boolean)
-        .join(","),
-    )
-      .split(",")
-      .map((o) => o.trim().replace(/\/+$/, ""))
-      .filter(Boolean),
+    fallbackOrigins: (() => {
+      const self = new Set(
+        [
+          optional("PUBLIC_API_URL", "https://api.maisresultadosonline.com.br"),
+          "http://127.0.0.1",
+          "http://localhost",
+        ].map((o) => o.trim().replace(/\/+$/, "")),
+      );
+
+      const configured = optional(
+        "STORAGE_FALLBACK_URLS",
+        [
+          process.env.LEGACY_SUPABASE_URL ?? "",
+          process.env.SUPABASE_URL ?? "",
+          process.env.VITE_SUPABASE_URL ?? "",
+          // Projeto de origem das mídias: mantém as capas funcionando mesmo
+          // quando o .env já foi reescrito para o backend local.
+          "https://whbqcaixxsplndmjusvo.supabase.co",
+        ]
+          .filter(Boolean)
+          .join(","),
+      );
+
+      return configured
+        .split(",")
+        .map((o) => o.trim().replace(/\/+$/, ""))
+        .filter((o) => o.length > 0)
+        .filter((o) => !self.has(o) && !/^https?:\/\/(127\.0\.0\.1|localhost)(:|$)/.test(o))
+        .filter((o, index, all) => all.indexOf(o) === index);
+    })(),
+
     /** Cacheia em disco o que vier do fallback (desative com `false`). */
     cacheFallback: optional("STORAGE_CACHE_FALLBACK", "true") !== "false",
   },
