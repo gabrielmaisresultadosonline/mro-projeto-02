@@ -50,6 +50,7 @@ import {
 
   Database,
   ServerCog,
+  KeyRound,
 } from 'lucide-react';
 
 import { 
