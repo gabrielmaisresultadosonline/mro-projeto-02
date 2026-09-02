@@ -126,6 +126,7 @@ export default function InstagramNovaAdmin() {
   const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "paid" | "completed" | "expired">("all");
   
   const autoCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const autoCheckRunningRef = useRef(false);
   const logsAutoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [autoCheckEnabled, setAutoCheckEnabled] = useState(true);
   const [lastAutoCheck, setLastAutoCheck] = useState<Date | null>(null);
@@ -942,6 +943,8 @@ Participe também do nosso GRUPO DE AVISOS
   const handleLogout = () => {
     clearAdminSession();
     setOrders([]);
+    ordersRef.current = [];
+    sessionStorage.removeItem(ORDERS_CACHE_STORAGE_KEY);
     if (autoCheckIntervalRef.current) {
       clearInterval(autoCheckIntervalRef.current);
     }
@@ -1042,6 +1045,8 @@ Participe também do nosso GRUPO DE AVISOS
 
   // Verificar pagamentos pendentes automaticamente (apenas pedidos dos últimos 30 min)
   const checkPendingPayments = async () => {
+    if (autoCheckRunningRef.current) return;
+    autoCheckRunningRef.current = true;
     try {
       const now = new Date();
       const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000);
@@ -1130,6 +1135,8 @@ Participe também do nosso GRUPO DE AVISOS
       await loadOrders(undefined, { silent: true });
     } catch (error) {
       console.error("[AUTO-CHECK] Erro:", error);
+    } finally {
+      autoCheckRunningRef.current = false;
     }
   };
 
@@ -1307,22 +1314,20 @@ Participe também do nosso GRUPO DE AVISOS
       let cleanName = order.username;
       const messageText = formatWebhookMessage(webhookConfig.message_template, order);
 
-      const response = await fetch("https://adljdeekwifwcdcgbpit.supabase.co/functions/v1/crm-webhook", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const { data: result, error: invokeError } = await supabase.functions.invoke("crm-webhook", {
+        body: {
           webhook_id: webhookConfig.webhook_id,
           token: webhookConfig.token,
           to: phone,
           message: messageText,
           variables: [cleanName, order.username, order.username, MEMBER_LINK],
           order_id: order.id
-        })
+        },
       });
 
-      const result = await response.json();
+      if (invokeError) throw invokeError;
       
-      if (result.success || result.duplicate) {
+      if (result?.success || result?.duplicate) {
         if (isTest) {
           if (result.duplicate) toast.info("Este pedido já foi enviado via API anteriormente.");
           else toast.success("Webhook enviado com sucesso!");
