@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { adminSupabase as supabase } from '@/lib/adminSupabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, X, Link as LinkIcon, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { storageAssetUrl } from '@/lib/assetUrl';
 
 interface CoverUploaderProps {
   currentUrl: string;
@@ -118,11 +119,11 @@ const CoverUploader = ({ currentUrl, onUpload, onRemove, folder = 'covers', id }
       {currentUrl && (
         <div className="relative w-full max-w-[200px] aspect-[1080/1350] rounded-lg overflow-hidden bg-secondary group">
           <img 
-            src={currentUrl} 
+            src={storageAssetUrl(currentUrl)} 
             alt="Capa" 
             className="w-full h-full object-cover"
             onError={(e) => {
-              e.currentTarget.src = 'https://via.placeholder.com/1080x1350?text=Erro';
+              e.currentTarget.src = '/placeholder.svg';
             }}
           />
           <button

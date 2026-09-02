@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { adminSupabase as supabase } from '@/lib/adminSupabase';
 import { 
   Bell, Plus, Trash2, Save, Eye, EyeOff, 
   Upload, X, AlertTriangle, Image as ImageIcon,
@@ -13,6 +13,7 @@ import {
   Chrome, FileText, ExternalLink, Zap
 } from 'lucide-react';
 import ExtensionAnnouncementDocs from './ExtensionAnnouncementDocs';
+import { storageAssetUrl } from '@/lib/assetUrl';
 
 export interface Announcement {
   id: string;
@@ -705,7 +706,7 @@ const AnnouncementsManager = ({ filterArea }: AnnouncementsManagerProps = {}) =>
               {formData.thumbnailUrl && (
                 <div className="relative mt-2">
                   <img 
-                    src={formData.thumbnailUrl} 
+                    src={storageAssetUrl(formData.thumbnailUrl)} 
                     alt="Preview" 
                     className="max-h-48 rounded-lg object-contain bg-secondary/50"
                     onError={(e) => e.currentTarget.style.display = 'none'}
@@ -1077,7 +1078,7 @@ const AnnouncementsManager = ({ filterArea }: AnnouncementsManagerProps = {}) =>
             >
               {announcement.thumbnailUrl && (
                 <img 
-                  src={announcement.thumbnailUrl} 
+                  src={storageAssetUrl(announcement.thumbnailUrl)} 
                   alt="" 
                   className="w-20 h-20 rounded-lg object-cover"
                   onError={(e) => e.currentTarget.style.display = 'none'}

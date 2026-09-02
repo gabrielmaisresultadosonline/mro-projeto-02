@@ -1,9 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { verifyAdminSessionToken } from "../_shared/admin-session.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-admin-token',
 };
 
 const logStep = (step: string, details?: any) => {
@@ -19,11 +20,23 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const adminSessionSecret = Deno.env.get('MRO_ADMIN_SESSION_SECRET') || '';
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { action, username, email, auth_token, daysRemaining, profileSessions, archivedProfiles, lifetimeCreativeUsedAt, activate } = await req.json();
     
     logStep("Request received", { action, username, hasEmail: !!email, hasAuthToken: !!auth_token, hasLifetimeCreativeUsedAt: !!lifetimeCreativeUsedAt });
+
+    if (action === 'get_creatives_pro_users' || action === 'set_creatives_pro') {
+      const adminToken = req.headers.get('x-admin-token');
+      const admin = await verifyAdminSessionToken(adminToken, adminSessionSecret, 'mro-main-admin');
+      if (!admin) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Sessão administrativa inválida ou expirada' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+        );
+      }
+    }
 
     // GET_CREATIVES_PRO_USERS - No username required
     if (action === 'get_creatives_pro_users') {

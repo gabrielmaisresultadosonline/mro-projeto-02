@@ -21,6 +21,7 @@ import { env } from "../env.js";
 import { adminQuery } from "../db.js";
 import { resolveAuth, isServiceRole } from "../auth-context.js";
 import { RestError } from "../rest/identifiers.js";
+import { hasValidAdminSession } from "../admin-session.js";
 
 export const storageRouter = Router();
 
@@ -81,6 +82,10 @@ async function isReadablePublicBucket(bucket: string): Promise<boolean> {
   return rows[0]?.public === true;
 }
 
+function canManageStorage(req: Request): boolean {
+  return isServiceRole(resolveAuth(req)) || hasValidAdminSession(req);
+}
+
 
 
 
@@ -108,8 +113,8 @@ const handleObjectUpload = async (req: Request, res: import("express").Response)
   const name = objectPathFromRequest(req);
   const auth = resolveAuth(req);
 
-  if (auth.role === "anon" && !(await isPublicBucket(bucket))) {
-    throw new RestError(403, "Upload não autorizado neste bucket.");
+  if (auth.role === "anon" && !canManageStorage(req) && !(await isPublicBucket(bucket))) {
+    throw new RestError(403, "Upload exige uma sessão administrativa válida.");
   }
 
   const absolute = safeJoin(bucket, name);
@@ -155,14 +160,6 @@ const handleObjectUpload = async (req: Request, res: import("express").Response)
   res.status(200).json({ Key: `${bucket}/${name}`, Id: crypto.randomUUID() });
 };
 
-storageRouter.post("/object/:bucket/*", upload.single("file"), handleObjectUpload);
-
-// O SDK usa PUT quando `upsert: true`.
-storageRouter.put("/object/:bucket/*", upload.single("file"), async (req, res) => {
-  req.headers["x-upsert"] = "true";
-  await handleObjectUpload(req, res);
-});
-
 /** Download público — servido também pelo Nginx, esta rota é o fallback. */
 storageRouter.get("/object/public/:bucket/*", async (req, res) => {
   const bucket = req.params.bucket;
@@ -181,17 +178,6 @@ storageRouter.get("/object/authenticated/:bucket/*", async (req, res) => {
     throw new RestError(401, "Autenticação necessária.");
   }
   await streamFile(req.params.bucket, objectPathFromRequest(req), req, res);
-});
-
-storageRouter.get("/object/:bucket/*", async (req, res) => {
-  const bucket = req.params.bucket;
-  const name = objectPathFromRequest(req);
-  const auth = resolveAuth(req);
-
-  if (auth.role === "anon" && !(await isPublicBucket(bucket))) {
-    throw new RestError(401, "Autenticação necessária.");
-  }
-  await streamFile(bucket, name, req, res);
 });
 
 /**
@@ -307,6 +293,10 @@ async function streamFile(
 
 /** URL assinada com HMAC e expiração — equivalente ao createSignedUrl. */
 storageRouter.post("/object/sign/:bucket/*", async (req, res) => {
+  const auth = resolveAuth(req);
+  if (auth.role === "anon" && !canManageStorage(req)) {
+    throw new RestError(401, "Autenticação necessária.");
+  }
   const bucket = req.params.bucket;
   const name = objectPathFromRequest(req);
   const expiresIn = Number(req.body?.expiresIn ?? 3600);
@@ -348,9 +338,26 @@ storageRouter.get("/object/signed/:bucket/*", async (req, res) => {
   await streamFile(bucket, name, req, res);
 });
 
+// Precisa vir depois de `/public`, `/authenticated` e `/signed`, pois é
+// deliberadamente a rota de leitura mais abrangente.
+storageRouter.get("/object/:bucket/*", async (req, res) => {
+  const bucket = req.params.bucket;
+  const name = objectPathFromRequest(req);
+  const auth = resolveAuth(req);
+
+  if (auth.role === "anon" && !canManageStorage(req) && !(await isPublicBucket(bucket))) {
+    throw new RestError(401, "Autenticação necessária.");
+  }
+  await streamFile(bucket, name, req, res);
+});
+
 /** Listagem de objetos (usada pelo painel admin e pelo dump). */
 storageRouter.post("/object/list/:bucket", async (req, res) => {
   const bucket = req.params.bucket;
+  const auth = resolveAuth(req);
+  if (auth.role === "anon" && !canManageStorage(req) && !(await isPublicBucket(bucket))) {
+    throw new RestError(403, "Listagem não autorizada neste bucket.");
+  }
   const prefix = String(req.body?.prefix ?? "");
   const limit = Math.min(Number(req.body?.limit ?? 100), 10_000);
   const offset = Number(req.body?.offset ?? 0);
@@ -367,9 +374,18 @@ storageRouter.post("/object/list/:bucket", async (req, res) => {
   res.json(rows);
 });
 
+// As rotas específicas acima precisam ser registradas antes deste wildcard.
+storageRouter.post("/object/:bucket/*", upload.single("file"), handleObjectUpload);
+
+// O SDK usa PUT quando `upsert: true`.
+storageRouter.put("/object/:bucket/*", upload.single("file"), async (req, res) => {
+  req.headers["x-upsert"] = "true";
+  await handleObjectUpload(req, res);
+});
+
 storageRouter.delete("/object/:bucket/*", async (req, res) => {
   const auth = resolveAuth(req);
-  if (auth.role === "anon") {
+  if (auth.role === "anon" && !canManageStorage(req)) {
     throw new RestError(401, "Autenticação necessária.");
   }
 

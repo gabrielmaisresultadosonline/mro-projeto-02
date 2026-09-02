@@ -21,6 +21,7 @@ import {
   getInvalidProfiles,
   clearInvalidProfiles
 } from '@/lib/syncStorage';
+import { storageAssetUrl } from '@/lib/assetUrl';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -1148,7 +1149,7 @@ const SyncDashboard = () => {
                     <div className="flex items-center gap-6">
                       {profile.profilePicUrl && !profile.profilePicUrl.includes('dicebear') ? (
                         <img 
-                          src={profile.profilePicUrl}
+                          src={storageAssetUrl(profile.profilePicUrl)}
                           alt={profile.username}
                           className="w-20 h-20 rounded-full object-cover border-4 border-green-500"
                           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -1233,7 +1234,7 @@ const SyncDashboard = () => {
                 >
                   {profile.profilePicUrl && !profile.profilePicUrl.includes('dicebear') ? (
                     <img 
-                      src={profile.profilePicUrl}
+                      src={storageAssetUrl(profile.profilePicUrl)}
                       alt={profile.username}
                       className="w-12 h-12 rounded-full object-cover border border-yellow-500/50"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -1285,7 +1286,7 @@ const SyncDashboard = () => {
                   >
                     {profile.profilePicUrl && !profile.profilePicUrl.includes('dicebear') ? (
                       <img 
-                        src={profile.profilePicUrl}
+                        src={storageAssetUrl(profile.profilePicUrl)}
                         alt={profile.username}
                         className="w-12 h-12 rounded-full object-cover border-2 border-green-500"
                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -1339,7 +1340,7 @@ const SyncDashboard = () => {
               >
                 {profile.profilePicUrl && !profile.profilePicUrl.includes('dicebear') ? (
                   <img 
-                    src={profile.profilePicUrl}
+                    src={storageAssetUrl(profile.profilePicUrl)}
                     alt={profile.username}
                     className={`w-16 h-16 rounded-full object-cover mx-auto mb-2 border-2 ${
                       profile.isConnectedToDashboard ? 'border-green-500' : 'border-muted'

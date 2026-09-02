@@ -2,6 +2,7 @@
 // NOW WITH SERVER PERSISTENCE
 
 import { supabase } from '@/integrations/supabase/client';
+import { storageAssetUrl } from '@/lib/assetUrl';
 
 export interface SquareCloudUser {
   ID: string;
@@ -76,6 +77,14 @@ const DEFAULT_SYNC_DATA: SyncData = {
   totalProfilesCount: 0
 };
 
+const normalizeProfileUrls = (data: SyncData): SyncData => ({
+  ...data,
+  profiles: data.profiles.map((profile) => ({
+    ...profile,
+    profilePicUrl: storageAssetUrl(profile.profilePicUrl),
+  })),
+});
+
 // Local cache for fast access
 let localCache: SyncData | null = null;
 let isSavingToServer = false;
@@ -87,7 +96,7 @@ export const getSyncData = (): SyncData => {
   try {
     const data = localStorage.getItem(SYNC_STORAGE_KEY);
     if (data) {
-      localCache = { ...DEFAULT_SYNC_DATA, ...JSON.parse(data) };
+      localCache = normalizeProfileUrls({ ...DEFAULT_SYNC_DATA, ...JSON.parse(data) });
       return localCache;
     }
   } catch (e) {
@@ -156,7 +165,7 @@ export const loadSyncDataFromServer = async (): Promise<SyncData> => {
 
     if (response?.success && response?.data) {
       console.log(`✅ Dados do admin carregados: ${response.data.profiles?.length || 0} perfis`);
-      const serverData = { ...DEFAULT_SYNC_DATA, ...response.data };
+      const serverData = normalizeProfileUrls({ ...DEFAULT_SYNC_DATA, ...response.data });
       saveToLocal(serverData);
       return serverData;
     }

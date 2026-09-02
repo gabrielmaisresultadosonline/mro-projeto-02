@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { getAdminData, saveAdminData, FacebookPixelSettings, CallPageSettings, CallPageContent, SalesPageSettings } from '@/lib/adminConfig';
-import { supabase } from '@/integrations/supabase/client';
+import { adminSupabase as supabase } from '@/lib/adminSupabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

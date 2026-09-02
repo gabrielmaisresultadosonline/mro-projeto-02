@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { adminSupabase as supabase } from '@/lib/adminSupabase';
+import { isAdminLoggedIn, loginAdmin, logoutAdmin } from '@/lib/adminConfig';
 import { 
   UserPlus, 
   Users, 
@@ -69,10 +70,6 @@ interface AdminSettings {
   messageTemplateInstagram: string;
   messageTemplateWhatsapp: string;
 }
-
-// Admin credentials stored in Supabase
-const ADMIN_EMAIL = 'mro@gmail.com';
-const ADMIN_PASSWORD = 'Ga145523@';
 
 const ACCESS_DAYS = {
   monthly: 30,
@@ -183,8 +180,7 @@ export default function AdminUsuario() {
   });
 
   useEffect(() => {
-    const savedAuth = localStorage.getItem('adminusuario_auth');
-    if (savedAuth === 'true') {
+    if (isAdminLoggedIn()) {
       setIsAuthenticated(true);
       loadAccesses();
       loadSettings();
@@ -220,20 +216,20 @@ export default function AdminUsuario() {
   };
 
   const handleLogin = async () => {
-    if (adminEmail.toLowerCase() === ADMIN_EMAIL && adminPassword === ADMIN_PASSWORD) {
+    const result = await loginAdmin(adminEmail, adminPassword);
+    if (result.success) {
       setIsAuthenticated(true);
-      localStorage.setItem('adminusuario_auth', 'true');
       loadAccesses();
       loadSettings();
       toast.success('Login realizado com sucesso!');
     } else {
-      toast.error('Email ou senha incorretos!');
+      toast.error(result.error || 'Email ou senha incorretos!');
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setIsAuthenticated(false);
-    localStorage.removeItem('adminusuario_auth');
+    await logoutAdmin();
     setAdminPassword('');
   };
 

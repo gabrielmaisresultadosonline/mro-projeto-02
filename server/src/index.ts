@@ -43,6 +43,7 @@ app.use(
       "x-client-info",
       "x-upsert",
       "x-internal-call",
+      "x-admin-token",
       "accept-profile",
       "content-profile",
     ],
