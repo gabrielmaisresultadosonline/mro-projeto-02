@@ -951,6 +951,43 @@ Participe também do nosso GRUPO DE AVISOS
     toast.info("Logout realizado");
   };
 
+  /**
+   * Grava um log durável no banco (aba "Logs") para cada cadastro/pagamento
+   * reconhecido — e também para os que falharem, com o motivo do erro.
+   * Nunca envia senhas ou tokens.
+   */
+  const logPanelEvent = async (entry: {
+    event_type: string;
+    status: string;
+    order?: MROOrder | null;
+    result_message?: string;
+    order_found?: boolean;
+    payload?: Record<string, unknown>;
+  }) => {
+    try {
+      const token = getAdminSessionToken();
+      if (!token) return;
+      await supabase.functions.invoke("instagram-admin", {
+        body: {
+          action: "logEvent",
+          token,
+          event_type: entry.event_type,
+          status: entry.status,
+          order_nsu: entry.order?.nsu_order ?? null,
+          email: entry.order?.email ?? null,
+          username: entry.order?.username ?? null,
+          amount: entry.order ? Number(entry.order.amount) || null : null,
+          order_id: entry.order?.id ?? null,
+          order_found: entry.order_found ?? Boolean(entry.order),
+          result_message: entry.result_message ?? null,
+          payload: entry.payload ?? null,
+        },
+      });
+    } catch (error) {
+      console.warn("[LOG] Falha ao registrar log do painel:", error);
+    }
+  };
+
   const loadOrders = async (
     tokenOverride?: string,
     options: { silent?: boolean } = {},
@@ -1004,11 +1041,37 @@ Participe também do nosso GRUPO DE AVISOS
             data?.forEach((order) => {
               if (updatedSet.has(order.id)) {
                 order.api_created = true;
+                void logPanelEvent({
+                  event_type: "access_provisioned",
+                  status: "success",
+                  order,
+                  result_message: "Acesso criado/reconhecido na API automaticamente",
+                });
               }
             });
           }
+
+          const notProvisioned = ordersToVerify.filter(
+            (order) => !(verifyResult?.updatedIds || []).includes(order.id),
+          );
+          notProvisioned.forEach((order) => {
+            void logPanelEvent({
+              event_type: "access_provisioned",
+              status: "pending",
+              order,
+              result_message: "Pedido pago sem acesso criado na API — requer verificação manual",
+            });
+          });
         } catch (verifyError) {
           console.error("[API-VERIFY] Erro na verificação:", verifyError);
+          ordersToVerify.forEach((order) => {
+            void logPanelEvent({
+              event_type: "access_provisioned",
+              status: "error",
+              order,
+              result_message: `Falha ao verificar acesso na API: ${String(verifyError)}`,
+            });
+          });
         }
       }
 
@@ -1027,6 +1090,19 @@ Participe também do nosso GRUPO DE AVISOS
 
       // Removida deduplicação agressiva para permitir ver todos os históricos (pendentes, expirados, etc)
       // conforme solicitado pelo usuário para "voltar como estava antes"
+      // Log de novos cadastros reconhecidos (comparado com o snapshot anterior)
+      const knownIds = new Set(ordersRef.current.map((order) => order.id));
+      (knownIds.size > 0 ? processedOrders : [])
+        .filter((order) => !knownIds.has(order.id))
+        .forEach((order) => {
+          void logPanelEvent({
+            event_type: "registration_detected",
+            status: order.status || "unknown",
+            order,
+            result_message: `Cadastro reconhecido no painel (status ${order.status})`,
+          });
+        });
+
       setOrders(processedOrders);
       ordersRef.current = processedOrders;
       try {
@@ -1097,12 +1173,32 @@ Participe também do nosso GRUPO DE AVISOS
 
           if (data?.status === "completed" || data?.status === "paid") {
             console.log(`[AUTO-CHECK] ✅ Pagamento confirmado para ${order.nsu_order}`);
+            void logPanelEvent({
+              event_type: "payment_auto_check",
+              status: "confirmed",
+              order,
+              result_message: `Pagamento reconhecido automaticamente (status ${data.status})`,
+              payload: { minutes_since_creation: minutesSinceCreation },
+            });
             return { order, status: data.status };
           } else {
             console.log(`[AUTO-CHECK] ⏳ Aguardando pagamento: ${order.nsu_order}`);
+            void logPanelEvent({
+              event_type: "payment_auto_check",
+              status: "not_recognized",
+              order,
+              result_message: `Pagamento ainda não reconhecido (retorno: ${data?.status ?? "sem status"})`,
+              payload: { response: data ?? null, minutes_since_creation: minutesSinceCreation },
+            });
           }
         } catch (e) {
           console.error(`[AUTO-CHECK] Erro ao verificar ${order.nsu_order}:`, e);
+          void logPanelEvent({
+            event_type: "payment_auto_check",
+            status: "error",
+            order,
+            result_message: `Erro ao verificar pagamento: ${String(e)}`,
+          });
         }
         return null;
       });
@@ -1149,11 +1245,24 @@ Participe também do nosso GRUPO DE AVISOS
 
       if (error) {
         toast.error("Erro ao verificar pagamento");
+        void logPanelEvent({
+          event_type: "payment_manual_check",
+          status: "error",
+          order,
+          result_message: `Erro ao verificar pagamento manualmente: ${error.message ?? String(error)}`,
+        });
         return;
       }
 
       if (data.status === "completed" || data.status === "paid") {
         toast.success(data.status === "completed" ? "Pagamento confirmado e acesso liberado!" : "Pagamento confirmado! Processando acesso...");
+        void logPanelEvent({
+          event_type: "payment_manual_check",
+          status: "confirmed",
+          order,
+          result_message: `Pagamento reconhecido manualmente (status ${data.status})`,
+        });
+        
         
         // Dispara Purchase no Pixel (uma única vez por pedido)
         const firedKey = `mro_pixel_fired_${order.id}`;
@@ -1170,6 +1279,13 @@ Participe também do nosso GRUPO DE AVISOS
         sendToCRMWebhook(order);
       } else {
         toast.info("Pagamento ainda não confirmado");
+        void logPanelEvent({
+          event_type: "payment_manual_check",
+          status: "not_recognized",
+          order,
+          result_message: `Pagamento não reconhecido (retorno: ${data?.status ?? "sem status"})`,
+          payload: { response: data ?? null },
+        });
       }
 
 

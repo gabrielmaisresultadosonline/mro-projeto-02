@@ -82,7 +82,10 @@ Deno.serve(async (req) => {
     if (body.action === "admin_login") {
       const parsed = LoginSchema.safeParse(body);
       if (!parsed.success) return json({ success: false, error: "Credenciais inválidas" }, 400);
-      const valid = parsed.data.email.toLowerCase() === adminEmail.toLowerCase() && parsed.data.password === adminPassword;
+      // Comparação tolerante a espaços/quebras de linha acidentais nos secrets.
+      const valid =
+        parsed.data.email.trim().toLowerCase() === adminEmail.trim().toLowerCase() &&
+        parsed.data.password === adminPassword.trim();
       if (!valid) return json({ success: false, error: "Credenciais inválidas" }, 401);
       const expiresAt = Date.now() + 12 * 60 * 60 * 1000;
       const token = await createAdminSessionToken({ email: adminEmail, scope: "mro-main-admin", exp: expiresAt }, sessionSecret);
