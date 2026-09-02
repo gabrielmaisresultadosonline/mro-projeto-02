@@ -196,18 +196,29 @@ storageRouter.get("/object/authenticated/:bucket/*", async (req, res) => {
  * disco. Sem isso, qualquer mídia que não veio na migração fica quebrada.
  * O primeiro acesso grava o arquivo localmente (self-healing).
  */
+/**
+ * Cache negativo: sem isso cada leitura de um objeto inexistente pagava o
+ * timeout das origens remotas — era o que deixava o painel "carregando".
+ */
+const missingCache = new Map<string, number>();
+const MISSING_TTL_MS = 60_000;
+
 async function fetchFromFallback(
   bucket: string,
   name: string,
   absolute: string,
 ): Promise<boolean> {
+  const cacheKey = `${bucket}/${name}`;
+  const cachedAt = missingCache.get(cacheKey);
+  if (cachedAt && Date.now() - cachedAt < MISSING_TTL_MS) return false;
+
   for (const origin of env.storage.fallbackOrigins) {
     const remote = `${origin}/storage/v1/object/public/${bucket}/${name
       .split("/")
       .map(encodeURIComponent)
       .join("/")}`;
     try {
-      const response = await fetch(remote);
+      const response = await fetch(remote, { signal: AbortSignal.timeout(4000) });
       if (!response.ok || !response.body) continue;
 
       const buffer = Buffer.from(await response.arrayBuffer());
@@ -226,11 +237,13 @@ async function fetchFromFallback(
           owner: null,
         }).catch(() => undefined);
       }
+      missingCache.delete(cacheKey);
       return true;
     } catch {
       // Origem indisponível: tenta a próxima.
     }
   }
+  missingCache.set(cacheKey, Date.now());
   return false;
 }
 
