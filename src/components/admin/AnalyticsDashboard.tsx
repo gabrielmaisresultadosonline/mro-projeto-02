@@ -3,6 +3,7 @@ import { SyncedInstagramProfile, getSyncData, saveSyncData } from '@/lib/syncSto
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { storageAssetUrl } from '@/lib/assetUrl';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
@@ -411,7 +412,7 @@ const AnalyticsDashboard = ({ profiles, onProfilesUpdate }: AnalyticsDashboardPr
               <div className="flex flex-col items-center mb-3">
                 {profile.profilePicUrl && !profile.profilePicUrl.includes('dicebear') ? (
                   <img
-                    src={profile.profilePicUrl}
+                    src={storageAssetUrl(profile.profilePicUrl)}
                     alt={profile.username}
                     className="w-16 h-16 rounded-full object-cover border-2 border-border mb-2"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}

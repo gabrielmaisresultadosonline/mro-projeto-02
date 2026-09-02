@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
+import { storageAssetUrl } from '@/lib/assetUrl';
 import html2canvas from 'html2canvas';
 import { 
   Download, Image as ImageIcon, ChevronLeft, CheckSquare, 
@@ -330,7 +331,7 @@ const SnapshotGenerator = ({
                 />
                 {p.profilePicUrl && !p.profilePicUrl.includes('dicebear') ? (
                   <img 
-                    src={p.profilePicUrl}
+                    src={storageAssetUrl(p.profilePicUrl)}
                     alt={p.username}
                     className="w-6 h-6 rounded-full object-cover"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -448,7 +449,7 @@ const SnapshotGenerator = ({
       >
         {profile.profilePicUrl && !profile.profilePicUrl.includes('dicebear') ? (
           <img 
-            src={profile.profilePicUrl}
+            src={storageAssetUrl(profile.profilePicUrl)}
             alt={profile.username}
             className="w-16 h-16 rounded-full object-cover border-2 border-white/30 mb-3"
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
