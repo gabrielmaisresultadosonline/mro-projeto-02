@@ -418,9 +418,8 @@ storageRouter.post("/object/list/:bucket", async (req, res) => {
        FROM storage_objects
       WHERE bucket_id = $1 AND name LIKE ($2 || '%')
         AND position('/' IN substring(name FROM char_length($2) + 1)) = 0
-      ORDER BY name
-      LIMIT $3 OFFSET $4`,
-    [bucket, prefix, limit, offset],
+      ORDER BY name`,
+    [bucket, prefix],
   );
 
   // Inclui arquivos presentes em disco mesmo se uma migração/upload antigo não
