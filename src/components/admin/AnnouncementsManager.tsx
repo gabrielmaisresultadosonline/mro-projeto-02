@@ -283,15 +283,16 @@ const AnnouncementsManager = ({ filterArea }: AnnouncementsManagerProps = {}) =>
           lastUpdated: new Date().toISOString()
         };
 
-        const extensionBlob = new Blob([JSON.stringify(extensionPayload, null, 2)], { type: 'application/json' });
+        const extensionBlob = new Blob([JSON.stringify(extensionPayload)], { type: 'application/json' });
         await supabase.storage
           .from('user-data')
           .upload(`admin/${fileName}`, extensionBlob, { 
             upsert: true,
             contentType: 'application/json'
           });
-      }
+      }));
 
+      persistCache(data, availableExtensions);
       toast({ title: 'Avisos salvos!', description: 'Alterações publicadas com sucesso' });
     } catch (error) {
       console.error('Erro ao salvar avisos:', error);
