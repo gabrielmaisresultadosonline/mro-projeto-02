@@ -474,10 +474,9 @@ const Renddx = () => {
           </div>
           <p className="text-zinc-400 mb-6">30 dias de acesso • suporte já incluso</p>
           <ul className="text-left space-y-3 mb-8 text-zinc-300 text-sm">
-            <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> 12 contas fixas + 5 testes (Total 17)</li>
+            <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> 4 contas fixas + 5 testes (Total 9)</li>
             <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> Passo a passo completo de uso</li>
             <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> Treinamento de gestão para empresas</li>
-            <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> Suporte incluso via WhatsApp</li>
             <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> Acesso imediato (30 dias)</li>
           </ul>
           <Button onClick={() => setShowCheckoutModal(true)} className="w-full bg-green-500 hover:bg-green-600 text-black font-black py-6 rounded-xl text-lg btn-pulse-green shadow-[0_0_20px_rgba(34,197,94,0.2)]">QUERO ACESSAR O MRO</Button>
