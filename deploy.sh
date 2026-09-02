@@ -277,15 +277,12 @@ if command -v nginx >/dev/null 2>&1 && [ -d /etc/nginx/sites-enabled ]; then
   API_DOMAIN="$(echo "${PUBLIC_API_URL:-api.maisresultadosonline.com.br}" | sed -E 's|https?://||; s|/.*|')"
   API_NGINX_CONFIG="$(sudo grep -rlE "server_name.*$API_DOMAIN" /etc/nginx/sites-enabled /etc/nginx/conf.d 2>/dev/null | head -1 || true)"
   if [ -n "$API_NGINX_CONFIG" ]; then
-    sudo python3 - "$API_NGINX_CONFIG" <<'PY'
-import pathlib
-import re
-import sys
-
-config = pathlib.Path(sys.argv[1])
-text = config.read_text()
-location = re.compile(r"(?ms)^\s*location\s+/storage/v1/object/public/\s*\{[^{}]*\}")
-replacement = """    location /storage/v1/object/public/ {
+    sudo python3 - "$API_NGINX_CONFIG" "$API_DOMAIN" <<'PY'
+import pathlib, re, sys
+config_path = pathlib.Path(sys.argv[1])
+api_domain = sys.argv[2]
+text = config_path.read_text()
+storage_block = """    location /storage/v1/object/public/ {
         proxy_pass http://127.0.0.1:8787;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -297,18 +294,24 @@ replacement = """    location /storage/v1/object/public/ {
         proxy_buffering off;
         proxy_request_buffering off;
         proxy_read_timeout 600s;
+        add_header 'Access-Control-Allow-Origin' '*' always;
     }"""
-
-if location.search(text):
-    updated = location.sub(replacement, text, count=1)
+loc_regex = re.compile(r"(?ms)^\s*location\s+/storage/v1/object/public/\s*\{[^{}]*\}")
+if loc_regex.search(text):
+    updated = loc_regex.sub(storage_block, text, count=1)
 else:
-    # Sem uma location específica, a location / já encaminha a mídia ao Node.
-    updated = text
-
+    server_blocks = re.split(r"(server\s*\{)", text)
+    new_parts, found = [], False
+    for i in range(len(server_blocks)):
+        part = server_blocks[i]
+        if not found and api_domain in part:
+            last_brace = part.rfind("}")
+            if last_brace != -1: part = part[:last_brace] + "\n" + storage_block + "\n" + part[last_brace:]; found = True
+        new_parts.append(part)
+    updated = "".join(new_parts)
 if updated != text:
-    backup = config.with_suffix(config.suffix + ".pre-media-hotfix")
-    backup.write_text(text)
-    config.write_text(updated)
+    config_path.with_suffix(config_path.suffix + ".pre-media-hotfix").write_text(text)
+    config_path.write_text(updated)
 PY
     sudo nginx -t || fail "Configuração do Nginx inválida; o arquivo anterior foi preservado em .pre-media-hotfix."
     ok "Mídias públicas encaminhadas ao backend com suporte a Range/206."

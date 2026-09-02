@@ -38,6 +38,7 @@ interface RunningFunction {
 
 const running = new Map<string, RunningFunction>();
 let nextPort = env.functions.basePort;
+const availablePorts: number[] = [];
 
 /**
  * Resolve o Deno uma vez por inicialização. O deploy pode instalá-lo em
@@ -99,8 +100,7 @@ function startFunction(name: string, entry: string): RunningFunction {
   if (!denoBin) {
     throw new RestError(503, "Runtime Deno indisponível no servidor.");
   }
-  const port = nextPort;
-  nextPort += 1;
+  const port = availablePorts.length > 0 ? availablePorts.pop()! : nextPort++;
 
   const child = spawn(
     denoBin,
@@ -152,10 +152,12 @@ function startFunction(name: string, entry: string): RunningFunction {
   child.on("error", (error) => {
     console.error(`[fn:${name}] não foi possível iniciar ${denoBin}:`, error.message);
     running.delete(name);
+    availablePorts.push(port);
   });
   child.on("exit", (code) => {
     console.warn(`[fn:${name}] processo encerrado (código ${code}); será reiniciado na próxima chamada.`);
     running.delete(name);
+    availablePorts.push(port);
   });
 
   const entryRecord: RunningFunction = {
@@ -258,6 +260,7 @@ const reaper = setInterval(() => {
   for (const [name, fn] of running.entries()) {
     if (fn.lastUsedAt >= cutoff) continue;
     fn.process.kill("SIGTERM");
+    availablePorts.push(fn.port);
     running.delete(name);
   }
 }, Math.min(env.functions.idleTimeoutMs, 60_000));
@@ -296,6 +299,7 @@ export function functionsRuntime(): { denoBin: string; available: boolean } {
 export function shutdownFunctions(): void {
   for (const fn of running.values()) {
     fn.process.kill("SIGTERM");
+    availablePorts.push(fn.port);
   }
   running.clear();
 }
