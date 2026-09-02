@@ -977,7 +977,7 @@ Participe também do nosso GRUPO DE AVISOS
         }
         console.error("Error loading orders:", error || response?.error);
         // Não mostrar erro de toast aqui se for apenas carregamento automático silencioso
-        if (!tokenOverride) toast.error(response?.error || "Erro ao carregar pedidos");
+        if (!silent) toast.error(response?.error || "Erro ao carregar pedidos");
         return;
       }
 

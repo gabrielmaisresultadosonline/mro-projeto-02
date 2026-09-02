@@ -14,6 +14,18 @@ const log = (step: string, details?: unknown) => {
   console.log(`[${timestamp}] [CHECK-MRO-PAYMENT] ${step}${detailsStr}`);
 };
 
+const isPaymentConfirmed = (payload: unknown): boolean => {
+  if (!payload || typeof payload !== "object") return false;
+  const payment = payload as Record<string, unknown>;
+  if (payment.paid === true) return true;
+
+  const status = typeof payment.status === "string"
+    ? payment.status.trim().toUpperCase()
+    : "";
+
+  return ["PAID", "APPROVED", "APPROVED_PAYMENT", "COMPLETED"].includes(status);
+};
+
 // Salvar log de verificação no banco
 const saveVerificationLog = async (
   supabase: any,
@@ -209,7 +221,7 @@ serve(async (req) => {
         log("InfiniPay payment_check response", checkData);
 
         // checkData.paid é o campo principal retornado pela API da InfiniPay
-        if (checkData.paid || checkData.status === "paid" || checkData.status === "APPROVED") {
+        if (isPaymentConfirmed(checkData)) {
           log("Payment confirmed via API, updating order and triggering webhook");
 
           // Atualizar para paid primeiro
@@ -298,7 +310,7 @@ serve(async (req) => {
             const checkData = await checkResponse.json();
             log("InfiniPay payment_check with lenc response", checkData);
 
-            if (checkData.paid || checkData.status === "paid" || checkData.status === "APPROVED") {
+            if (isPaymentConfirmed(checkData)) {
               log("Payment confirmed via lenc, updating order and triggering webhook");
 
               // Atualizar para paid
@@ -378,7 +390,7 @@ serve(async (req) => {
         const directCheckData = await directCheckResponse.json();
         log("InfiniPay direct check response", directCheckData);
 
-        if (directCheckData.paid || directCheckData.status === "paid" || directCheckData.status === "APPROVED") {
+        if (isPaymentConfirmed(directCheckData)) {
           log("Payment confirmed via direct check, updating order and triggering webhook");
 
           await supabase
