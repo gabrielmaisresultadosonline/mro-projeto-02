@@ -122,7 +122,13 @@ export const ProfileScreenshotUpload = ({
           setIsAnalyzing(true);
           try {
             const { data: analysisData, error: analysisError } = await supabase.functions.invoke('analyze-profile-screenshot', {
-              body: { screenshot_url: data.url, username, ocr_text: ocrResult.text }
+              body: {
+                screenshot_url: data.url,
+                username,
+                ocr_text: ocrResult.text,
+                image_base64: base64.split(',')[1],
+                content_type: selectedFile.type,
+              }
             });
 
             if (analysisError) throw analysisError;
