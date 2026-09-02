@@ -1232,6 +1232,12 @@ Participe também do nosso GRUPO DE AVISOS
 
       if (error) {
         toast.error("Erro ao verificar pagamento");
+        void logPanelEvent({
+          event_type: "payment_manual_check",
+          status: "error",
+          order,
+          result_message: `Erro ao verificar pagamento manualmente: ${error.message ?? String(error)}`,
+        });
         return;
       }
 
