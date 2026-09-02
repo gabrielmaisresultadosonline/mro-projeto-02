@@ -153,6 +153,38 @@ serve(async (req) => {
       return respond({ success: false, error: "Sessão expirada. Faça login novamente." });
     }
 
+    // Registra qualquer evento do painel (cadastro reconhecido, pagamento
+    // confirmado, falha de verificação etc.) em `infinitepay_webhook_logs`,
+    // que já é a tabela lida pela aba de Logs do painel.
+    if (action === "logEvent") {
+      const truncate = (value: unknown, max = 500) =>
+        typeof value === "string" && value.trim() !== "" ? value.trim().slice(0, max) : null;
+
+      const eventType = truncate(body.event_type, 80) ?? "panel_event";
+      const status = truncate(body.status, 40) ?? "info";
+
+      const { error } = await supabase.from("infinitepay_webhook_logs").insert({
+        event_type: eventType,
+        status,
+        order_nsu: truncate(body.order_nsu, 120),
+        transaction_nsu: truncate(body.transaction_nsu, 120),
+        email: truncate(body.email, 255),
+        username: truncate(body.username, 120),
+        amount: typeof body.amount === "number" && Number.isFinite(body.amount) ? body.amount : null,
+        result_message: truncate(body.result_message, 1000),
+        order_found: typeof body.order_found === "boolean" ? body.order_found : null,
+        order_id: typeof body.order_id === "string" && /^[0-9a-f-]{36}$/i.test(body.order_id) ? body.order_id : null,
+        payload: body.payload && typeof body.payload === "object" ? body.payload : null,
+      });
+
+      if (error) {
+        console.error("[instagram-admin] logEvent error", error);
+        return respond({ success: false, error: "Erro ao salvar log" });
+      }
+
+      return respond({ success: true });
+    }
+
     if (action === "listOrders") {
       const { data, error } = await supabase
         .from("mro_orders")
