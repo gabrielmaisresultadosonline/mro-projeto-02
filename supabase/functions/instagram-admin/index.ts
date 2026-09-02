@@ -204,7 +204,7 @@ serve(async (req) => {
         .from("infinitepay_webhook_logs")
         .select("id, created_at, event_type, order_nsu, transaction_nsu, email, username, affiliate_id, amount, status, result_message, order_found")
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(300);
 
       if (error) {
         console.error("[instagram-admin] listLogs error", error);
