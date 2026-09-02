@@ -174,9 +174,12 @@ const AnnouncementsManager = ({ filterArea }: AnnouncementsManagerProps = {}) =>
       // Todos os arquivos de extensão em paralelo (antes era um a um).
       const extensionLists = await Promise.all(
         announcementFiles.map(async (file) => {
-          const extKey = file.name.replace('-announcements.json', '');
+          // Backends antigos retornavam só o basename; algumas versões locais
+          // retornavam o caminho completo. Aceitamos ambos sem gerar admin/admin.
+          const listedName = file.name.split('/').filter(Boolean).pop() || file.name;
+          const extKey = listedName.replace('-announcements.json', '');
           detectedExtensions.add(extKey);
-          const parsed = await downloadJson(`admin/${file.name}`);
+          const parsed = await downloadJson(`admin/${listedName}`);
           return (parsed?.announcements || []).map((a: any) => ({
             ...a,
             targetArea: extKey,

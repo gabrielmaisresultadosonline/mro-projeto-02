@@ -107,6 +107,14 @@ async function recordObject(params: {
   contentType: string;
   owner: string | null;
 }): Promise<void> {
+  // Migrações antigas podem ter trazido os arquivos sem o registro do bucket.
+  // Garante a FK antes de registrar o objeto, sem alterar buckets existentes.
+  await adminQuery(
+    `INSERT INTO storage_buckets (id, name, public)
+     VALUES ($1, $1, $2)
+     ON CONFLICT (id) DO NOTHING`,
+    [params.bucket, params.bucket === "assets"],
+  );
   await adminQuery(
     `INSERT INTO storage_objects (bucket_id, name, size, content_type, owner, updated_at)
      VALUES ($1, $2, $3, $4, $5, now())
@@ -387,14 +395,17 @@ storageRouter.post("/object/list/:bucket", async (req, res) => {
   if (auth.role === "anon" && !canManageStorage(req) && !(await isPublicBucket(bucket))) {
     throw new RestError(403, "Listagem não autorizada neste bucket.");
   }
-  const prefix = String(req.body?.prefix ?? "");
+  const rawPrefix = String(req.body?.prefix ?? "").replace(/^\/+|\/+$/g, "");
+  const prefix = rawPrefix ? `${rawPrefix}/` : "";
   const limit = Math.min(Number(req.body?.limit ?? 100), 10_000);
   const offset = Number(req.body?.offset ?? 0);
 
   const rows = await adminQuery(
-    `SELECT name, size, content_type, created_at, updated_at
+    `SELECT substring(name FROM char_length($2) + 1) AS name,
+            size, content_type, created_at, updated_at
        FROM storage_objects
       WHERE bucket_id = $1 AND name LIKE $2
+        AND position('/' IN substring(name FROM char_length($2) + 1)) = 0
       ORDER BY name
       LIMIT $3 OFFSET $4`,
     [bucket, `${prefix}%`, limit, offset],
