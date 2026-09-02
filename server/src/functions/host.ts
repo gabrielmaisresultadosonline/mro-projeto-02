@@ -167,6 +167,8 @@ async function startFunction(name: string, entry: string): Promise<RunningFuncti
 
       env: {
         ...process.env,
+        HOME: process.env.HOME || "/root",
+        DENO_DIR: process.env.DENO_DIR || "/var/cache/mro-deno",
         // As funções originais usam estes nomes. No backend próprio eles devem
         // sempre apontar para a VPS, mesmo se server/.env ainda tiver aliases
         // antigos ou vazios da origem legada.

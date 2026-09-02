@@ -22,6 +22,10 @@ module.exports = {
       kill_timeout: 70000,
       env: {
         NODE_ENV: "production",
+        // O cache aquecido no deploy e o runtime iniciado pelo PM2 precisam
+        // usar exatamente o mesmo diretório, inclusive após reboot via systemd.
+        HOME: process.env.HOME || "/root",
+        DENO_DIR: process.env.DENO_DIR || "/var/cache/mro-deno",
         // PM2 iniciado pelo systemd costuma herdar um PATH mínimo. As funções
         // Deno precisam enxergar o binário instalado pelo deploy.
         PATH: `/usr/local/bin:${process.env.HOME || "/root"}/.deno/bin:${process.env.PATH || "/usr/bin:/bin"}`,

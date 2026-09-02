@@ -76,12 +76,22 @@ fi
 
 if command -v deno >/dev/null 2>&1; then
   DENO_PATH="$(command -v deno)"
+  # O PM2 iniciado pelo systemd pode não herdar HOME. Um diretório fixo garante
+  # que o cache preparado aqui seja o mesmo usado pelas funções em produção.
+  export DENO_DIR="${DENO_DIR:-/var/cache/mro-deno}"
+  sudo mkdir -p "$DENO_DIR"
+  sudo chown -R "$(id -u):$(id -g)" "$DENO_DIR"
   # O daemon do PM2 pode ter um PATH diferente do shell. Persistimos o caminho
   # absoluto sem alterar as demais variáveis ou segredos existentes.
   if grep -q '^DENO_BIN=' server/.env; then
     sed -i "s|^DENO_BIN=.*|DENO_BIN=$DENO_PATH|" server/.env
   else
     printf '\nDENO_BIN=%s\n' "$DENO_PATH" >> server/.env
+  fi
+  if grep -q '^DENO_DIR=' server/.env; then
+    sed -i "s|^DENO_DIR=.*|DENO_DIR=$DENO_DIR|" server/.env
+  else
+    printf 'DENO_DIR=%s\n' "$DENO_DIR" >> server/.env
   fi
   ok "Deno disponível ($(deno --version | head -1))."
 elif [ "$CUTOVER" = true ]; then
