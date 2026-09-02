@@ -351,6 +351,22 @@ import pathlib, re, sys
 config_path = pathlib.Path(sys.argv[1])
 api_domain = sys.argv[2]
 text = config_path.read_text()
+# O Express é a única autoridade de CORS. Removemos regras antigas do Nginx
+# porque combinar a origem devolvida pelo backend com "*" produz dois valores
+# em Access-Control-Allow-Origin e o navegador bloqueia o preflight.
+text = re.sub(
+    r"(?mi)^\s*add_header\s+['\"]?Access-Control-(?:Allow|Expose)-[A-Za-z-]+['\"]?\s+.*?;\s*$\n?",
+    "",
+    text,
+)
+# Configurações anteriores respondiam OPTIONS diretamente no Nginx. Sem os
+# headers removidos acima isso viraria um 204 sem CORS; encaminhamos o preflight
+# ao middleware cors() do backend, que reflete uma única origem autorizada.
+text = re.sub(
+    r"(?ms)^\s*if\s*\(\s*\$request_method\s*=\s*['\"]?OPTIONS['\"]?\s*\)\s*\{[^{}]*?return\s+204;[^{}]*?\}\s*",
+    "",
+    text,
+)
 storage_block = """    location /storage/v1/ {
         client_max_body_size 300m;
         proxy_pass http://127.0.0.1:8787;
@@ -365,7 +381,6 @@ storage_block = """    location /storage/v1/ {
         proxy_buffering off;
         proxy_request_buffering off;
         proxy_read_timeout 600s;
-        add_header 'Access-Control-Allow-Origin' '*' always;
     }"""
 functions_block = """    location /functions/v1/ {
         proxy_pass http://127.0.0.1:8787;
@@ -444,19 +459,28 @@ if [ "$CUTOVER" = true ]; then
   fi
   rm -f "$PUBLIC_UPLOAD_RESPONSE"
 
-  # O navegador faz OPTIONS antes do POST. Validamos explicitamente o CORS
-  # público, não apenas a porta local, para detectar configuração antiga do Nginx.
-  if curl -sf --max-time 10 -X OPTIONS \
+  # O navegador faz OPTIONS antes do upload. Exigimos exatamente um header com
+  # a origem do site; curl aceitaria cabeçalhos duplicados, mas o browser não.
+  STORAGE_CORS_HEADERS="$(mktemp)"
+  STORAGE_CORS_STATUS="$(curl -sS --max-time 10 -X OPTIONS \
       -H "Origin: https://maisresultadosonline.com.br" \
       -H "Access-Control-Request-Method: POST" \
       -H "Access-Control-Request-Headers: authorization,apikey,content-type,x-client-info" \
-      -D /tmp/mro-cors-headers -o /dev/null \
-      "${API_URL_FINAL%/}/functions/v1/ferramentamropromo-video" \
-      && grep -qi '^access-control-allow-origin:' /tmp/mro-cors-headers; then
-    ok "CORS público das Edge Functions validado."
+      -D "$STORAGE_CORS_HEADERS" -o /dev/null -w '%{http_code}' \
+      "${API_URL_FINAL%/}/storage/v1/object/assets/announcements/.cors-check.jpg" || true)"
+  STORAGE_CORS_COUNT="$(grep -ci '^access-control-allow-origin:' "$STORAGE_CORS_HEADERS" || true)"
+  STORAGE_CORS_VALUE="$(grep -i '^access-control-allow-origin:' "$STORAGE_CORS_HEADERS" | head -1 | tr -d '\r' | cut -d: -f2- | xargs || true)"
+  if [ "$STORAGE_CORS_STATUS" = "204" ] \
+      && [ "$STORAGE_CORS_COUNT" = "1" ] \
+      && [ "$STORAGE_CORS_VALUE" = "https://maisresultadosonline.com.br" ]; then
+    ok "Preflight do upload validado com uma única origem CORS."
   else
-    fail "CORS público das Edge Functions inválido; confira o virtual host da API no Nginx."
+    echo "  OPTIONS storage: HTTP ${STORAGE_CORS_STATUS:-sem status}; headers CORS: $STORAGE_CORS_COUNT; origem: ${STORAGE_CORS_VALUE:-ausente}"
+    cat "$STORAGE_CORS_HEADERS" 2>/dev/null || true
+    rm -f "$STORAGE_CORS_HEADERS"
+    fail "CORS público do upload inválido; deploy bloqueado para evitar falha no /admin."
   fi
+  rm -f "$STORAGE_CORS_HEADERS"
 
   # Confere de fato pela porta pública se a API responde com a chave anônima:
   # é isso que o navegador vai fazer em cada página.
