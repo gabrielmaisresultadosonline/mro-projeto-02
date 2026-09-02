@@ -1092,7 +1092,7 @@ Participe também do nosso GRUPO DE AVISOS
       // conforme solicitado pelo usuário para "voltar como estava antes"
       // Log de novos cadastros reconhecidos (comparado com o snapshot anterior)
       const knownIds = new Set(ordersRef.current.map((order) => order.id));
-      processedOrders
+      (knownIds.size > 0 ? processedOrders : [])
         .filter((order) => !knownIds.has(order.id))
         .forEach((order) => {
           void logPanelEvent({
