@@ -85,86 +85,80 @@ const AnnouncementsManager = ({ filterArea }: AnnouncementsManagerProps = {}) =>
   });
 
   useEffect(() => {
+    // Pinta imediatamente com o cache local e revalida em segundo plano:
+    // o painel deixa de ficar "carregando" enquanto o storage responde.
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached) as {
+          announcements: Announcement[];
+          extensions: string[];
+        };
+        if (Array.isArray(parsed.announcements)) {
+          setAnnouncements(parsed.announcements);
+          if (parsed.extensions?.length) setAvailableExtensions(parsed.extensions);
+          setIsLoading(false);
+        }
+      }
+    } catch {
+      // Cache corrompido é irrelevante: seguimos para o carregamento remoto.
+    }
     loadAnnouncements();
   }, []);
 
+  const downloadJson = async (path: string): Promise<any | null> => {
+    try {
+      const { data, error } = await supabase.storage.from('user-data').download(path);
+      if (error || !data) return null;
+      return JSON.parse(await data.text());
+    } catch {
+      return null;
+    }
+  };
+
   const loadAnnouncements = async () => {
     setIsLoading(true);
-    console.log('🔄 Carregando todos os avisos de todas as extensões...');
     try {
-      let allAnnouncements: Announcement[] = [];
-      const detectedExtensions: string[] = ['extension', 'extension2'];
+      const detectedExtensions = new Set<string>(['extension', 'extension2']);
 
-      // 1. Carregar avisos regulares (announcements.json)
-      try {
-        const { data: regularData, error: regularError } = await supabase.storage
-          .from('user-data')
-          .download('admin/announcements.json');
-        
-        if (!regularError && regularData) {
-          const text = await regularData.text();
-          const parsed: AnnouncementsData = JSON.parse(text);
-          const regularList = (parsed.announcements || []).map(a => ({
+      // Baixa o arquivo principal e lista os arquivos de extensão em paralelo.
+      const [regularParsed, listResult] = await Promise.all([
+        downloadJson('admin/announcements.json'),
+        supabase.storage.from('user-data').list('admin'),
+      ]);
+
+      const regularList: Announcement[] = (regularParsed?.announcements || []).map(
+        (a: Announcement) => ({ ...a, targetArea: a.targetArea || 'all' }),
+      );
+
+      const announcementFiles = (listResult.data || []).filter(
+        (f) => f.name.endsWith('-announcements.json') && f.name !== 'announcements.json',
+      );
+
+      // Todos os arquivos de extensão em paralelo (antes era um a um).
+      const extensionLists = await Promise.all(
+        announcementFiles.map(async (file) => {
+          const extKey = file.name.replace('-announcements.json', '');
+          detectedExtensions.add(extKey);
+          const parsed = await downloadJson(`admin/${file.name}`);
+          return (parsed?.announcements || []).map((a: any) => ({
             ...a,
-            targetArea: a.targetArea || 'all'
-          }));
-          allAnnouncements = [...regularList];
-          console.log(`✅ Carregados ${regularList.length} avisos de announcements.json`);
-        }
-      } catch (e) {
-        console.error('Erro ao baixar announcements.json:', e);
-      }
+            targetArea: extKey,
+            forceRead: a.forceRead ?? false,
+            forceReadSeconds: a.forceReadSeconds ?? 5,
+            forceNotClose: a.forceNotClose ?? false,
+            maxViews: a.maxViews ?? 1,
+            viewCount: a.viewCount ?? 0,
+          })) as Announcement[];
+        }),
+      );
 
-      // 2. Listar e carregar todos os arquivos de extensão (*-announcements.json)
-      const { data: files, error: listError } = await supabase.storage
-        .from('user-data')
-        .list('admin');
+      const allAnnouncements = [...regularList, ...extensionLists.flat()];
+      const extensions = Array.from(detectedExtensions).sort();
 
-      if (listError) {
-        console.error('Erro ao listar arquivos do storage:', listError);
-      } else if (files) {
-        const announcementFiles = files.filter(f => 
-          f.name.endsWith('-announcements.json') && f.name !== 'announcements.json'
-        );
-        
-        console.log(`📂 Arquivos de avisos detectados: ${announcementFiles.map(f => f.name).join(', ')}`);
-
-        for (const file of announcementFiles) {
-          try {
-            const extKey = file.name.replace('-announcements.json', '');
-            if (!detectedExtensions.includes(extKey)) {
-              detectedExtensions.push(extKey);
-            }
-
-            const { data: extensionData, error: extensionError } = await supabase.storage
-              .from('user-data')
-              .download(`admin/${file.name}`);
-            
-            if (!extensionError && extensionData) {
-              const text = await extensionData.text();
-              const parsed = JSON.parse(text);
-              const extList = (parsed.announcements || []).map((a: any) => ({
-                ...a,
-                targetArea: extKey,
-                forceRead: a.forceRead ?? false,
-                forceReadSeconds: a.forceReadSeconds ?? 5,
-                forceNotClose: a.forceNotClose ?? false,
-                maxViews: a.maxViews ?? 1,
-                viewCount: a.viewCount ?? 0
-              }));
-              
-              allAnnouncements = [...allAnnouncements, ...extList];
-              console.log(`✅ Carregados ${extList.length} avisos de ${file.name}`);
-            }
-          } catch (e) {
-            console.error(`Erro ao processar arquivo ${file.name}:`, e);
-          }
-        }
-      }
-
-      setAvailableExtensions(detectedExtensions.sort());
+      setAvailableExtensions(extensions);
       setAnnouncements(allAnnouncements);
-      console.log(`📢 Total de avisos carregados: ${allAnnouncements.length}`);
+      persistCache(allAnnouncements, extensions);
     } catch (error) {
       console.error('Erro geral ao carregar avisos:', error);
       toast({ 
