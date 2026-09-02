@@ -39,7 +39,10 @@ const jsonBody = express.json({ limit: "50mb" });
  */
 function parseObjectUpload(req: Request, res: Response, next: NextFunction): void {
   if (req.is("multipart/form-data")) {
-    upload.single("file")(req, res, (error?: unknown) => {
+    // storage-js usa um campo sem nome para Blob/File em algumas versões;
+    // integrações legadas usam `file`. Aceitamos qualquer nome, mas apenas o
+    // primeiro arquivo é processado abaixo.
+    upload.any()(req, res, (error?: unknown) => {
       if (!error) {
         next();
         return;
@@ -209,7 +212,9 @@ const handleObjectUpload = async (req: Request, res: import("express").Response)
     return;
   }
 
-  const body = req.file?.buffer ?? (Buffer.isBuffer(req.body) ? req.body : null);
+  const multipartFiles = Array.isArray(req.files) ? req.files : [];
+  const uploadedFile = req.file ?? multipartFiles[0];
+  const body = uploadedFile?.buffer ?? (Buffer.isBuffer(req.body) ? req.body : null);
   if (!body) {
     throw new RestError(400, "Corpo do upload vazio.");
   }
@@ -231,7 +236,7 @@ const handleObjectUpload = async (req: Request, res: import("express").Response)
 
   const detectedMime = mime.lookup(name);
   const contentType =
-    req.file?.mimetype ??
+    uploadedFile?.mimetype ??
     req.header("content-type") ??
     (typeof detectedMime === "string" ? detectedMime : undefined) ??
     "application/octet-stream";

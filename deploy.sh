@@ -426,9 +426,8 @@ if [ "$CUTOVER" = true ]; then
     -H "Origin: https://maisresultadosonline.com.br" \
     -H "apikey: $ANON_KEY" \
     -H "Authorization: Bearer $ANON_KEY" \
-    -H "Content-Type: image/jpeg" \
     -H "x-upsert: true" \
-    --data-binary "@$PUBLIC_UPLOAD_BODY" \
+    -F "=@$PUBLIC_UPLOAD_BODY;type=image/jpeg;filename=deploy-check.jpg" \
     "${API_URL_FINAL%/}/storage/v1/object/assets/${PUBLIC_UPLOAD_NAME}" || true)"
   rm -f "$PUBLIC_UPLOAD_BODY"
   if [ "$PUBLIC_UPLOAD_STATUS" = "200" ]; then
