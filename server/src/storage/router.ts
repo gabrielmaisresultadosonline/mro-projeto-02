@@ -180,17 +180,6 @@ storageRouter.get("/object/authenticated/:bucket/*", async (req, res) => {
   await streamFile(req.params.bucket, objectPathFromRequest(req), req, res);
 });
 
-storageRouter.get("/object/:bucket/*", async (req, res) => {
-  const bucket = req.params.bucket;
-  const name = objectPathFromRequest(req);
-  const auth = resolveAuth(req);
-
-  if (auth.role === "anon" && !(await isPublicBucket(bucket))) {
-    throw new RestError(401, "Autenticação necessária.");
-  }
-  await streamFile(bucket, name, req, res);
-});
-
 /**
  * Busca o objeto nas origens remotas configuradas quando ele não existe no
  * disco. Sem isso, qualquer mídia que não veio na migração fica quebrada.
@@ -345,6 +334,19 @@ storageRouter.get("/object/signed/:bucket/*", async (req, res) => {
 
   if (!valid) {
     throw new RestError(403, "Assinatura inválida.");
+  }
+  await streamFile(bucket, name, req, res);
+});
+
+// Precisa vir depois de `/public`, `/authenticated` e `/signed`, pois é
+// deliberadamente a rota de leitura mais abrangente.
+storageRouter.get("/object/:bucket/*", async (req, res) => {
+  const bucket = req.params.bucket;
+  const name = objectPathFromRequest(req);
+  const auth = resolveAuth(req);
+
+  if (auth.role === "anon" && !canManageStorage(req) && !(await isPublicBucket(bucket))) {
+    throw new RestError(401, "Autenticação necessária.");
   }
   await streamFile(bucket, name, req, res);
 });

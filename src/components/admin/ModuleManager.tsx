@@ -7,6 +7,7 @@ import {
   saveModulesToCloud, loadModulesFromCloud, SectionContent, ModulePlatform, AdminData, getModulesStorageKey, ModuleProductAd
 } from '@/lib/adminConfig';
 import { adminSupabase as supabase } from '@/lib/adminSupabase';
+import { storageAssetUrl } from '@/lib/assetUrl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -1314,7 +1315,7 @@ const ModuleManager = ({ downloadLink, onDownloadLinkChange, onSaveSettings, pla
                 <div className="relative w-16 aspect-[4/5] rounded-lg overflow-hidden bg-secondary flex-shrink-0">
                   {module.coverUrl ? (
                     <img 
-                      src={module.coverUrl} 
+                      src={storageAssetUrl(module.coverUrl)} 
                       alt={module.title}
                       className="w-full h-full object-cover"
                       onError={(e) => {
@@ -1880,7 +1881,7 @@ const ModuleManager = ({ downloadLink, onDownloadLinkChange, onSaveSettings, pla
                           {content.type === 'video' ? (
                             <div className="aspect-[4/5] rounded-lg overflow-hidden bg-secondary relative">
                               <img 
-                                src={(content as ModuleVideo).thumbnailUrl || getYoutubeThumbnail((content as ModuleVideo).youtubeUrl)}
+                                src={storageAssetUrl((content as ModuleVideo).thumbnailUrl) || getYoutubeThumbnail((content as ModuleVideo).youtubeUrl)}
                                 alt={content.title}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
@@ -1900,7 +1901,7 @@ const ModuleManager = ({ downloadLink, onDownloadLinkChange, onSaveSettings, pla
                             <div className="aspect-[4/5] rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-mro-cyan/20 relative">
                               {(content as ModuleButton).coverUrl ? (
                                 <img 
-                                  src={(content as ModuleButton).coverUrl}
+                                  src={storageAssetUrl((content as ModuleButton).coverUrl)}
                                   alt={content.title}
                                   className="w-full h-full object-cover"
                                 />

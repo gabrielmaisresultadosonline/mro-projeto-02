@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { adminSupabase as supabase } from '@/lib/adminSupabase';
+import { storageAssetUrl } from '@/lib/assetUrl';
 import { 
   ExternalLink, 
   Save, 
@@ -673,7 +674,7 @@ const ManualScraper = () => {
                 {profileData.profilePicture && (
                   <div className="flex items-center gap-3 p-2 bg-secondary/30 rounded">
                     <img 
-                      src={profileData.profilePicture} 
+                      src={storageAssetUrl(profileData.profilePicture)} 
                       alt="Preview" 
                       className="w-12 h-12 rounded-full object-cover"
                       onError={(e) => {
@@ -867,7 +868,7 @@ const ManualScraper = () => {
                     {post.imageUrl && !post.postUrl && (
                       <div className="relative">
                         <img 
-                          src={post.imageUrl} 
+                          src={storageAssetUrl(post.imageUrl)} 
                           alt={`Post ${index + 1}`}
                           className="w-full h-24 object-cover rounded"
                           onError={(e) => {
@@ -930,7 +931,7 @@ const ManualScraper = () => {
                 <div className="flex items-center gap-4">
                   {profileData.profilePicture && !profileData.profilePicture.includes('ui-avatars') ? (
                     <img 
-                      src={profileData.profilePicture} 
+                      src={storageAssetUrl(profileData.profilePicture)} 
                       alt={targetUsername}
                       className="w-16 h-16 rounded-full object-cover"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -1024,7 +1025,7 @@ const ManualScraper = () => {
                 <div className="flex items-center gap-3">
                   {profile.profilePicture ? (
                     <img 
-                      src={profile.profilePicture} 
+                      src={storageAssetUrl(profile.profilePicture)} 
                       alt={profile.username}
                       className="w-12 h-12 rounded-full object-cover"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
