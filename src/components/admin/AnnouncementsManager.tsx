@@ -249,11 +249,10 @@ const AnnouncementsManager = ({ filterArea }: AnnouncementsManagerProps = {}) =>
       // Falha silenciosa aqui era o motivo do aviso "sumir" depois de salvar.
       if (regularUploadError) throw regularUploadError;
 
-      // 2. Salvar anúncios de extensão em arquivos separados
-      const allGroupKeys = Object.keys(groups);
-      const extensionAreas = allGroupKeys.filter(area => area.startsWith('extension'));
-      
-      for (const area of extensionAreas) {
+      // 2. Salvar anúncios de extensão em arquivos separados (em paralelo).
+      const extensionAreas = Object.keys(groups).filter(area => area.startsWith('extension'));
+
+      await Promise.all(extensionAreas.map(async (area) => {
         const fileName = `${area}-announcements.json`;
         const extAnnouncements = groups[area];
         
