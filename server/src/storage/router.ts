@@ -107,6 +107,14 @@ async function recordObject(params: {
   contentType: string;
   owner: string | null;
 }): Promise<void> {
+  // Migrações antigas podem ter trazido os arquivos sem o registro do bucket.
+  // Garante a FK antes de registrar o objeto, sem alterar buckets existentes.
+  await adminQuery(
+    `INSERT INTO storage_buckets (id, name, public)
+     VALUES ($1, $1, $2)
+     ON CONFLICT (id) DO NOTHING`,
+    [params.bucket, params.bucket === "assets"],
+  );
   await adminQuery(
     `INSERT INTO storage_objects (bucket_id, name, size, content_type, owner, updated_at)
      VALUES ($1, $2, $3, $4, $5, now())
@@ -160,13 +168,19 @@ const handleObjectUpload = async (req: Request, res: import("express").Response)
     (typeof detectedMime === "string" ? detectedMime : undefined) ??
     "application/octet-stream";
 
-  await recordObject({
-    bucket,
-    name,
-    size: body.byteLength,
-    contentType,
-    owner: auth.userId,
-  });
+  try {
+    await recordObject({
+      bucket,
+      name,
+      size: body.byteLength,
+      contentType,
+      owner: auth.userId,
+    });
+  } catch (error) {
+    // O arquivo já foi gravado com sucesso. Metadados podem ser reconstruídos
+    // pela listagem em disco; não transformamos um upload válido em HTTP 500.
+    console.error(`[storage] arquivo salvo, mas metadado falhou (${bucket}/${name}):`, error);
+  }
 
   res.status(200).json({ Key: `${bucket}/${name}`, Id: crypto.randomUUID() });
 };
@@ -387,20 +401,46 @@ storageRouter.post("/object/list/:bucket", async (req, res) => {
   if (auth.role === "anon" && !canManageStorage(req) && !(await isPublicBucket(bucket))) {
     throw new RestError(403, "Listagem não autorizada neste bucket.");
   }
-  const prefix = String(req.body?.prefix ?? "");
+  const rawPrefix = String(req.body?.prefix ?? "").replace(/^\/+|\/+$/g, "");
+  const prefix = rawPrefix ? `${rawPrefix}/` : "";
   const limit = Math.min(Number(req.body?.limit ?? 100), 10_000);
   const offset = Number(req.body?.offset ?? 0);
 
-  const rows = await adminQuery(
-    `SELECT name, size, content_type, created_at, updated_at
+  const databaseRows = await adminQuery<{
+    name: string;
+    size: number;
+    content_type: string | null;
+    created_at: string;
+    updated_at: string;
+  }>(
+    `SELECT substring(name FROM char_length($2) + 1) AS name,
+            size, content_type, created_at, updated_at
        FROM storage_objects
-      WHERE bucket_id = $1 AND name LIKE $2
-      ORDER BY name
-      LIMIT $3 OFFSET $4`,
-    [bucket, `${prefix}%`, limit, offset],
+      WHERE bucket_id = $1 AND name LIKE ($2 || '%')
+        AND position('/' IN substring(name FROM char_length($2) + 1)) = 0
+      ORDER BY name`,
+    [bucket, prefix],
   );
 
-  res.json(rows);
+  // Inclui arquivos presentes em disco mesmo se uma migração/upload antigo não
+  // conseguiu registrar metadados. Retorna basename, como a API Storage espera.
+  const directory = safeJoin(bucket, rawPrefix);
+  const diskEntries = await fs.readdir(directory, { withFileTypes: true }).catch(() => []);
+  const byName = new Map(databaseRows.map((row) => [row.name, row]));
+  for (const entry of diskEntries) {
+    if (!entry.isFile() || byName.has(entry.name)) continue;
+    const stat = await fs.stat(path.join(directory, entry.name)).catch(() => null);
+    if (!stat) continue;
+    byName.set(entry.name, {
+      name: entry.name,
+      size: stat.size,
+      content_type: (mime.lookup(entry.name) || null) as string | null,
+      created_at: stat.birthtime.toISOString(),
+      updated_at: stat.mtime.toISOString(),
+    });
+  }
+
+  res.json([...byName.values()].sort((a, b) => a.name.localeCompare(b.name)).slice(offset, offset + limit));
 });
 
 // As rotas específicas acima precisam ser registradas antes deste wildcard.
