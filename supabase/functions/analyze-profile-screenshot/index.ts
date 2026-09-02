@@ -121,32 +121,17 @@ async function fetchImageBase64(url: string): Promise<{ data: string; mime: stri
 }
 
 async function callGateway(apiKey: string, systemPrompt: string, userPrompt: string, imageUrl: string) {
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: userPrompt },
-            { type: 'image_url', image_url: { url: imageUrl } },
-          ],
-        },
-      ],
-      temperature: 0.2,
-      max_tokens: 2500,
-    }),
+  return await callOpenAICompatible({
+    baseUrl: 'https://ai.gateway.lovable.dev/v1',
+    apiKey,
+    model: 'google/gemini-2.5-flash',
+    systemPrompt,
+    userPrompt,
+    imageUrl,
+    label: 'gateway',
   });
-
-  if (!response.ok) {
-    throw new Error(`gateway ${response.status}: ${await response.text()}`);
-  }
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content as string | undefined;
 }
+
 
 async function callGoogle(apiKey: string, systemPrompt: string, userPrompt: string, image: { data: string; mime: string }) {
   const response = await fetch(
