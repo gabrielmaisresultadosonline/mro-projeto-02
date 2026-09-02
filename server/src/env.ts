@@ -101,6 +101,7 @@ export const env = {
           process.env.VITE_SUPABASE_URL ?? "",
           // Projeto de origem das mídias: mantém as capas funcionando mesmo
           // quando o .env já foi reescrito para o backend local.
+          "https://adljdeekwifwcdcgbpit.supabase.co",
           "https://whbqcaixxsplndmjusvo.supabase.co",
         ]
           .filter(Boolean)

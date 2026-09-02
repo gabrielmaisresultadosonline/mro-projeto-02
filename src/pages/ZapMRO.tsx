@@ -544,13 +544,14 @@ const ZapMRO = () => {
                       <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-green-900 border-2 border-green-600/30 group-hover:border-green-400 transition-all duration-300 shadow-lg">
                         <img 
                           src={(content as ModuleVideo).videoFileUrl ? 
-                            ((content as ModuleVideo).thumbnailUrl || 'https://via.placeholder.com/1080x1920?text=MP4') :
+                            ((content as ModuleVideo).thumbnailUrl || '/placeholder.svg') :
                             ((content as ModuleVideo).thumbnailUrl || getYoutubeThumbnail((content as ModuleVideo).youtubeUrl))
                           }
                           alt={content.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           onError={(e) => {
-                            e.currentTarget.src = 'https://via.placeholder.com/1080x1920?text=Video';
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = '/placeholder.svg';
                           }}
                         />
                         

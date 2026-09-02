@@ -140,7 +140,7 @@ export const EstruturaTutoriais = ({ onBack }: EstruturaTutoriaisProps) => {
             <div key={content.id} className="content-card group cursor-pointer flex-shrink-0 snap-start w-[120px] sm:w-[140px] md:w-[160px] lg:w-[180px]" onClick={() => handleContentClick(content)}>
               {content.type === 'video' ? (
                 <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-black border-2 border-border/50 group-hover:border-primary transition-all duration-300 shadow-lg">
-                  <img src={(content as ModuleVideo).thumbnailUrl || getYoutubeThumbnail((content as ModuleVideo).youtubeUrl)} alt={content.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/1080x1920?text=Video'; }} />
+                  <img src={(content as ModuleVideo).thumbnailUrl || getYoutubeThumbnail((content as ModuleVideo).youtubeUrl)} alt={content.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/placeholder.svg'; }} />
                   {(content as ModuleVideo).isFileVideo ? (
                     <div className="absolute top-2 left-2 px-2 py-0.5 bg-emerald-600 rounded text-xs font-semibold text-white flex items-center gap-1"><Play className="w-3 h-3" />MP4</div>
                   ) : (

@@ -3,6 +3,7 @@
 // with admin role assigned in user_roles table
 
 import { supabase } from '@/integrations/supabase/client';
+import { storageAssetUrl } from '@/lib/assetUrl';
 
 // Admin settings stored in localStorage
 export interface WelcomeVideo {
@@ -454,7 +455,25 @@ export const loadModulesFromCloud = async (
         `[adminConfig] ${platform} modules loaded from cloud:`,
         responseData.data.modules?.length || 0
       );
-      return responseData.data;
+
+      // Conteúdo migrado ainda pode conter URLs absolutas do projeto antigo.
+      // Normalizamos recursivamente apenas campos string para preservar toda a
+      // estrutura dos módulos, inclusive capas dentro de subseções.
+      const normalizeMediaUrls = (value: unknown): unknown => {
+        if (typeof value === 'string') return storageAssetUrl(value);
+        if (Array.isArray(value)) return value.map(normalizeMediaUrls);
+        if (value && typeof value === 'object') {
+          return Object.fromEntries(
+            Object.entries(value).map(([key, nestedValue]) => [key, normalizeMediaUrls(nestedValue)])
+          );
+        }
+        return value;
+      };
+
+      return normalizeMediaUrls(responseData.data) as {
+        modules: TutorialModule[];
+        settings: Pick<AdminSettings, 'downloadLink' | 'welcomeVideo'>;
+      };
     }
 
     console.log('[adminConfig] No valid data in response');
