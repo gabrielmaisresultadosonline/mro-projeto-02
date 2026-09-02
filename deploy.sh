@@ -100,6 +100,22 @@ else
   warn "Deno não encontrado: as funções (/functions/v1) não vão subir."
 fi
 
+# ── Fallback de mídias ────────────────────────────────────────────────────────
+# As capas/imagens que não vieram na migração precisam de uma origem remota para
+# serem baixadas no primeiro acesso. Se STORAGE_FALLBACK_URLS estiver vazio (ou
+# apontando para o próprio domínio) as imagens ficam 404 para sempre.
+FALLBACK_ORIGIN="https://whbqcaixxsplndmjusvo.supabase.co"
+CURRENT_FALLBACK="$(grep -E '^STORAGE_FALLBACK_URLS=' server/.env | head -1 | cut -d= -f2- | tr -d '"'"'"'' | tr -d ' ')"
+if [ -z "$CURRENT_FALLBACK" ] || printf '%s' "$CURRENT_FALLBACK" | grep -q 'api\.maisresultadosonline\.com\.br'; then
+  if grep -q '^STORAGE_FALLBACK_URLS=' server/.env; then
+    sed -i "s|^STORAGE_FALLBACK_URLS=.*|STORAGE_FALLBACK_URLS=$FALLBACK_ORIGIN|" server/.env
+  else
+    printf '\nSTORAGE_FALLBACK_URLS=%s\n' "$FALLBACK_ORIGIN" >> server/.env
+  fi
+  ok "Fallback de mídias configurado ($FALLBACK_ORIGIN)."
+fi
+
+
 ok "Ambiente pronto."
 
 # ---------- 1. Código ----------

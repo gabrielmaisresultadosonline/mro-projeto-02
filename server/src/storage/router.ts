@@ -34,9 +34,12 @@ const upload = multer({
  * no servidor — é o ponto mais sensível de todo o storage.
  */
 function safeJoin(bucket: string, objectPath: string): string {
-  if (!/^[a-zA-Z0-9_-]+$/.test(bucket)) {
+  // Buckets do Supabase podem conter ponto (ex.: `user.avatars`). Recusamos
+  // apenas o que permitiria traversal (`..`) ou separadores de caminho.
+  if (!/^[a-zA-Z0-9._-]+$/.test(bucket) || bucket.includes("..")) {
     throw new RestError(400, `Nome de bucket inválido: ${bucket}`);
   }
+
   const normalized = path
     .normalize(objectPath)
     .replace(/^(\.\.(\/|\\|$))+/, "")
