@@ -17,6 +17,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { accessSync, constants } from "node:fs";
 import path from "node:path";
 import fs from "node:fs";
+import net from "node:net";
 import { fileURLToPath } from "node:url";
 import { env } from "../env.js";
 import { RestError } from "../rest/identifiers.js";
@@ -39,6 +40,7 @@ interface RunningFunction {
 const running = new Map<string, RunningFunction>();
 let nextPort = env.functions.basePort;
 const availablePorts: number[] = [];
+const MAX_STARTUP_LOG_CHARS = 12_000;
 
 /**
  * Resolve o Deno uma vez por inicialização. O deploy pode instalá-lo em
@@ -79,9 +81,21 @@ function functionEntrypoint(name: string): string | null {
   return fs.existsSync(entry) ? entry : null;
 }
 
-async function waitForPort(port: number, timeoutMs = env.functions.startupTimeoutMs): Promise<void> {
+async function waitForPort(
+  port: number,
+  child: ChildProcess,
+  startupError: () => string,
+  timeoutMs = env.functions.startupTimeoutMs,
+): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      const detail = startupError().trim();
+      throw new Error(
+        `processo Deno encerrou antes de abrir a porta ${port}` +
+          (detail ? `: ${detail}` : ` (código ${child.exitCode ?? child.signalCode})`),
+      );
+    }
     try {
       const response = await fetch(`http://127.0.0.1:${port}/`, {
         method: "OPTIONS",
@@ -93,14 +107,47 @@ async function waitForPort(port: number, timeoutMs = env.functions.startupTimeou
       await new Promise((resolve) => setTimeout(resolve, 300));
     }
   }
-  throw new Error(`Função não respondeu na porta ${port} dentro do tempo limite.`);
+  const detail = startupError().trim();
+  throw new Error(
+    `função não respondeu na porta ${port} dentro do tempo limite` +
+      (detail ? `: ${detail}` : "."),
+  );
 }
 
-function startFunction(name: string, entry: string): RunningFunction {
+function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const probe = net.createServer();
+    probe.unref();
+    probe.once("error", () => resolve(false));
+    probe.listen(port, "127.0.0.1", () => probe.close(() => resolve(true)));
+  });
+}
+
+async function reservePort(): Promise<number> {
+  while (availablePorts.length > 0) {
+    const candidate = availablePorts.pop();
+    if (candidate !== undefined && await isPortAvailable(candidate)) return candidate;
+  }
+  for (let attempts = 0; attempts < 500; attempts += 1) {
+    const candidate = nextPort++;
+    if (await isPortAvailable(candidate)) return candidate;
+  }
+  throw new RestError(503, "Nenhuma porta livre disponível para iniciar as funções.");
+}
+
+function releasePort(port: number): void {
+  if (!availablePorts.includes(port)) availablePorts.push(port);
+}
+
+async function startFunction(name: string, entry: string): Promise<RunningFunction> {
   if (!denoBin) {
     throw new RestError(503, "Runtime Deno indisponível no servidor.");
   }
-  const port = availablePorts.length > 0 ? availablePorts.pop()! : nextPort++;
+  const port = await reservePort();
+  let startupLog = "";
+  const appendStartupLog = (chunk: unknown) => {
+    startupLog = `${startupLog}${String(chunk)}`.slice(-MAX_STARTUP_LOG_CHARS);
+  };
 
   const child = spawn(
     denoBin,
@@ -144,27 +191,29 @@ function startFunction(name: string, entry: string): RunningFunction {
   });
 
   child.stdout?.on("data", (chunk) => {
+    appendStartupLog(chunk);
     process.stdout.write(`[fn:${name}] ${chunk}`);
   });
   child.stderr?.on("data", (chunk) => {
+    appendStartupLog(chunk);
     process.stderr.write(`[fn:${name}:err] ${chunk}`);
   });
   child.on("error", (error) => {
     console.error(`[fn:${name}] não foi possível iniciar ${denoBin}:`, error.message);
     running.delete(name);
-    availablePorts.push(port);
+    releasePort(port);
   });
   child.on("exit", (code) => {
     console.warn(`[fn:${name}] processo encerrado (código ${code}); será reiniciado na próxima chamada.`);
     running.delete(name);
-    availablePorts.push(port);
+    releasePort(port);
   });
 
   const entryRecord: RunningFunction = {
     name,
     port,
     process: child,
-    ready: spawnReady.then(() => waitForPort(port)),
+    ready: spawnReady.then(() => waitForPort(port, child, () => startupLog)),
     startedAt: Date.now(),
     lastUsedAt: Date.now(),
   };
@@ -185,7 +234,7 @@ async function ensureFunction(name: string): Promise<RunningFunction> {
     throw new RestError(404, `Função não encontrada: ${name}`);
   }
 
-  const started = startFunction(name, entry);
+  const started = await startFunction(name, entry);
   try {
     await started.ready;
   } catch (error) {
@@ -260,7 +309,7 @@ const reaper = setInterval(() => {
   for (const [name, fn] of running.entries()) {
     if (fn.lastUsedAt >= cutoff) continue;
     fn.process.kill("SIGTERM");
-    availablePorts.push(fn.port);
+    releasePort(fn.port);
     running.delete(name);
   }
 }, Math.min(env.functions.idleTimeoutMs, 60_000));
@@ -299,7 +348,7 @@ export function functionsRuntime(): { denoBin: string; available: boolean } {
 export function shutdownFunctions(): void {
   for (const fn of running.values()) {
     fn.process.kill("SIGTERM");
-    availablePorts.push(fn.port);
+    releasePort(fn.port);
   }
   running.clear();
 }
