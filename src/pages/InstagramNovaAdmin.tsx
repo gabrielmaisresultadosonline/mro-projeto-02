@@ -1266,6 +1266,13 @@ Participe também do nosso GRUPO DE AVISOS
         sendToCRMWebhook(order);
       } else {
         toast.info("Pagamento ainda não confirmado");
+        void logPanelEvent({
+          event_type: "payment_manual_check",
+          status: "not_recognized",
+          order,
+          result_message: `Pagamento não reconhecido (retorno: ${data?.status ?? "sem status"})`,
+          payload: { response: data ?? null },
+        });
       }
 
 
