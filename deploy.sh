@@ -351,7 +351,8 @@ import pathlib, re, sys
 config_path = pathlib.Path(sys.argv[1])
 api_domain = sys.argv[2]
 text = config_path.read_text()
-storage_block = """    location /storage/v1/object/public/ {
+storage_block = """    location /storage/v1/ {
+        client_max_body_size 300m;
         proxy_pass http://127.0.0.1:8787;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -379,7 +380,7 @@ functions_block = """    location /functions/v1/ {
         proxy_read_timeout 120s;
         proxy_connect_timeout 10s;
     }"""
-loc_regex = re.compile(r"(?ms)^\s*location\s+/storage/v1/object/public/\s*\{[^{}]*\}")
+loc_regex = re.compile(r"(?ms)^\s*location\s+/storage/v1/(?:object/public/)?\s*\{[^{}]*\}")
 fn_regex = re.compile(r"(?ms)^\s*location\s+/functions/v1/?\s*\{[^{}]*\}")
 if loc_regex.search(text):
     updated = loc_regex.sub(storage_block, text, count=1)
@@ -404,7 +405,7 @@ if updated != text:
     config_path.write_text(updated)
 PY
     sudo nginx -t || fail "Configuração do Nginx inválida; o arquivo anterior foi preservado em .pre-media-hotfix."
-    ok "Funções e mídias públicas encaminhadas ao backend local."
+    ok "Funções, uploads e mídias públicas encaminhados ao backend local."
   else
     warn "Virtual host da API não localizado; preservando a configuração atual."
   fi
@@ -414,6 +415,35 @@ fi
 command -v systemctl >/dev/null 2>&1 && sudo systemctl reload nginx && ok "Nginx recarregado."
 
 if [ "$CUTOVER" = true ]; then
+  # Reproduz o POST binário feito por storage.from(...).upload() usando o mesmo
+  # domínio HTTPS do navegador. O teste interno isolado não detecta bloqueios,
+  # aliases antigos ou limites incorretos do Nginx.
+  PUBLIC_UPLOAD_NAME="announcements/.deploy-public-${RANDOM}-$(date +%s).jpg"
+  PUBLIC_UPLOAD_BODY="$(mktemp)"
+  PUBLIC_UPLOAD_RESPONSE="$(mktemp)"
+  printf '\377\330\377\331' > "$PUBLIC_UPLOAD_BODY"
+  PUBLIC_UPLOAD_STATUS="$(curl -sS --max-time 20 -o "$PUBLIC_UPLOAD_RESPONSE" -w '%{http_code}' -X POST \
+    -H "Origin: https://maisresultadosonline.com.br" \
+    -H "apikey: $ANON_KEY" \
+    -H "Authorization: Bearer $ANON_KEY" \
+    -H "x-upsert: true" \
+    -F "=@$PUBLIC_UPLOAD_BODY;type=image/jpeg;filename=deploy-check.jpg" \
+    "${API_URL_FINAL%/}/storage/v1/object/assets/${PUBLIC_UPLOAD_NAME}" || true)"
+  rm -f "$PUBLIC_UPLOAD_BODY"
+  if [ "$PUBLIC_UPLOAD_STATUS" = "200" ]; then
+    rm -f "$STORAGE_DIR/assets/$PUBLIC_UPLOAD_NAME"
+    psql -v ON_ERROR_STOP=0 -d "$DATABASE_URL" \
+      -c "DELETE FROM storage_objects WHERE bucket_id = 'assets' AND name = '${PUBLIC_UPLOAD_NAME}'" >/dev/null 2>&1 || true
+    ok "Upload de thumbnail validado pelo domínio público."
+  else
+    echo "  Resposta pública do storage (${PUBLIC_UPLOAD_STATUS:-sem status}):"
+    head -c 2000 "$PUBLIC_UPLOAD_RESPONSE" 2>/dev/null || true; echo
+    tail -n 100 /var/log/mro/api-error.log 2>/dev/null || true
+    rm -f "$PUBLIC_UPLOAD_RESPONSE"
+    fail "Upload público indisponível; deploy bloqueado para evitar falhas no /admin."
+  fi
+  rm -f "$PUBLIC_UPLOAD_RESPONSE"
+
   # O navegador faz OPTIONS antes do POST. Validamos explicitamente o CORS
   # público, não apenas a porta local, para detectar configuração antiga do Nginx.
   if curl -sf --max-time 10 -X OPTIONS \

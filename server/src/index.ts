@@ -52,9 +52,10 @@ app.use(
 
 // Webhooks precisam do corpo bruto para validar assinatura (Meta/Stripe/InfiniPay).
 app.use("/functions/v1", express.raw({ type: "*/*", limit: "50mb" }));
-// O SDK envia o objeto diretamente no corpo e conserva seu Content-Type. Isso
-// inclui JSONs do painel, PDFs e formatos ainda desconhecidos, não só mídia.
-app.use("/storage/v1", express.raw({ type: "*/*", limit: "300mb" }));
+// Storage define parsers por rota: uploads usam corpo binário/multipart, enquanto
+// listagem, assinatura e remoção usam JSON. Um parser global consumia o stream
+// antes do Multer e causava HTTP 500 em thumbnails enviadas pelo painel.
+app.use("/storage/v1", asyncRouter(storageRouter));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
@@ -76,7 +77,6 @@ app.get("/health", async (_req, res) => {
 
 app.use("/rest/v1", asyncRouter(restRouter));
 app.use("/auth/v1", asyncRouter(authRouter));
-app.use("/storage/v1", asyncRouter(storageRouter));
 app.use("/functions/v1", asyncRouter(functionsRouter));
 
 app.use((_req, res) => {
@@ -91,6 +91,17 @@ app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
       details: error.details ?? null,
       hint: null,
       code: error.code ?? String(error.status),
+    });
+    return;
+  }
+
+  const bodyError = error as { type?: string; status?: number; message?: string };
+  if (bodyError?.type === "entity.too.large" || bodyError?.status === 413) {
+    res.status(413).json({
+      message: "Arquivo maior que o limite permitido.",
+      details: bodyError.message ?? null,
+      hint: null,
+      code: "PAYLOAD_TOO_LARGE",
     });
     return;
   }
