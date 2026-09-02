@@ -274,7 +274,8 @@ done
 # O restante da configuração (incluindo certificados TLS) é preservado.
 if command -v nginx >/dev/null 2>&1 && [ -d /etc/nginx/sites-enabled ]; then
   step "Configurando streaming de mídias no Nginx"
-  API_NGINX_CONFIG="$(sudo grep -rl 'server_name api\.maisresultadosonline\.com\.br' /etc/nginx/sites-enabled /etc/nginx/conf.d 2>/dev/null | head -1 || true)"
+  API_DOMAIN="$(echo "${PUBLIC_API_URL:-api.maisresultadosonline.com.br}" | sed -E 's|https?://||; s|/.*|')"
+  API_NGINX_CONFIG="$(sudo grep -rlE "server_name.*$API_DOMAIN" /etc/nginx/sites-enabled /etc/nginx/conf.d 2>/dev/null | head -1 || true)"
   if [ -n "$API_NGINX_CONFIG" ]; then
     sudo python3 - "$API_NGINX_CONFIG" <<'PY'
 import pathlib
