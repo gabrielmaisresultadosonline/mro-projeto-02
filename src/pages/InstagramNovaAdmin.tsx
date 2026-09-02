@@ -2904,7 +2904,7 @@ Acesse seu resumo aqui: ${window.location.origin}/resumo/${affId.toLowerCase()}`
               className="h-9 px-2 md:px-3 border-zinc-600 text-zinc-300 text-xs md:text-sm"
               disabled={loading}
             >
-              <RefreshCw className={`w-4 h-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+              <RefreshCw className={`w-4 h-4 mr-1.5 ${loading || refreshingOrders ? "animate-spin" : ""}`} />
               <span className="hidden sm:inline">Atualizar</span>
             </Button>
             <Button
