@@ -41,6 +41,10 @@ export async function rewriteUrls(apply: boolean): Promise<void> {
   const legacy = requireLegacy();
   const legacyBase = `${legacy.url}/storage/v1/object/public/`;
   const newBase = `${env.publicUrl}/storage/v1/object/public/`;
+  // Alguns registros vieram de projetos anteriores ao LEGACY_SUPABASE_URL
+  // atual. O padrão cobre qualquer host histórico sem depender de DNS.
+  const anyLegacyStoragePattern =
+    "https?://[a-zA-Z0-9-]+\\.supabase\\.co/storage/v1/object/public/";
 
   if (legacyBase === newBase) {
     log.warn("URL antiga e nova são iguais; nada a reescrever.");
@@ -59,8 +63,8 @@ export async function rewriteUrls(apply: boolean): Promise<void> {
     const asText = column.type === "jsonb" || column.type === "json" ? `${field}::text` : field;
 
     const { rows } = await pool.query<{ count: string }>(
-      `SELECT count(*)::text AS count FROM ${table} WHERE ${asText} LIKE $1`,
-      [`%${legacyBase}%`],
+      `SELECT count(*)::text AS count FROM ${table} WHERE ${asText} ~ $1`,
+      [anyLegacyStoragePattern],
     );
     const affected = Number(rows[0]?.count ?? 0);
     if (affected === 0) continue;
@@ -71,14 +75,14 @@ export async function rewriteUrls(apply: boolean): Promise<void> {
       // jsonb precisa voltar para o tipo original após a substituição textual.
       const expression =
         column.type === "jsonb"
-          ? `replace(${field}::text, $1, $2)::jsonb`
+          ? `regexp_replace(${field}::text, $1, $2, 'g')::jsonb`
           : column.type === "json"
-            ? `replace(${field}::text, $1, $2)::json`
-            : `replace(${field}, $1, $2)`;
+            ? `regexp_replace(${field}::text, $1, $2, 'g')::json`
+            : `regexp_replace(${field}, $1, $2, 'g')`;
 
       const result = await pool.query(
-        `UPDATE ${table} SET ${field} = ${expression} WHERE ${asText} LIKE $3`,
-        [legacyBase, newBase, `%${legacyBase}%`],
+        `UPDATE ${table} SET ${field} = ${expression} WHERE ${asText} ~ $1`,
+        [anyLegacyStoragePattern, newBase],
       );
       log.ok(`${column.table}.${column.column}: ${result.rowCount} registros atualizados.`);
     }

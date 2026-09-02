@@ -105,7 +105,9 @@ fi
 # serem baixadas no primeiro acesso. Se STORAGE_FALLBACK_URLS estiver vazio (ou
 # apontando para o próprio domínio) as imagens ficam 404 para sempre.
 FALLBACK_ORIGIN="https://whbqcaixxsplndmjusvo.supabase.co"
-CURRENT_FALLBACK="$(grep -E '^STORAGE_FALLBACK_URLS=' server/.env | head -1 | cut -d= -f2- | tr -d '"'"'"'' | tr -d ' ')"
+# Com `set -euo pipefail`, grep sem resultado encerrava o deploy exatamente
+# depois da mensagem do Deno em instalações que ainda não tinham esta chave.
+CURRENT_FALLBACK="$(grep -E '^STORAGE_FALLBACK_URLS=' server/.env 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"'"'"'' | tr -d ' ' || true)"
 if [ -z "$CURRENT_FALLBACK" ] || printf '%s' "$CURRENT_FALLBACK" | grep -q 'api\.maisresultadosonline\.com\.br'; then
   if grep -q '^STORAGE_FALLBACK_URLS=' server/.env; then
     sed -i "s|^STORAGE_FALLBACK_URLS=.*|STORAGE_FALLBACK_URLS=$FALLBACK_ORIGIN|" server/.env
