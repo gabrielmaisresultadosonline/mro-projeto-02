@@ -135,7 +135,7 @@ export default function ActiveClientsSection({
     // If image is from our cache and hasn't errored, always show it
     const isCached = client.profilePicture?.includes('profile-cache/profiles/');
     
-    if ((hasError && !isCached) || !client.profilePicture) {
+    if (hasError || !client.profilePicture) {
       return (
         <div className="w-full h-full rounded-full bg-gradient-to-br from-yellow-500 to-yellow-600 flex items-center justify-center text-black font-bold text-lg">
           {client.username.substring(0, 2).toUpperCase()}

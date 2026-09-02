@@ -113,7 +113,7 @@ const handleObjectUpload = async (req: Request, res: import("express").Response)
   const name = objectPathFromRequest(req);
   const auth = resolveAuth(req);
 
-  if (auth.role === "anon" && !canManageStorage(req)) {
+  if (auth.role === "anon" && !canManageStorage(req) && !(await isPublicBucket(bucket))) {
     throw new RestError(403, "Upload exige uma sessão administrativa válida.");
   }
 

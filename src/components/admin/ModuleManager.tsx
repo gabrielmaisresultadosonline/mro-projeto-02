@@ -2166,7 +2166,7 @@ const ModuleManager = ({ downloadLink, onDownloadLinkChange, onSaveSettings, pla
                                 {sContent.type === 'video' ? (
                                   <div className="aspect-[4/5] rounded-lg overflow-hidden bg-secondary relative">
                                     <img 
-                                      src={(sContent as ModuleVideo).thumbnailUrl || getYoutubeThumbnail((sContent as ModuleVideo).youtubeUrl)}
+                                      src={storageAssetUrl((sContent as ModuleVideo).thumbnailUrl) || getYoutubeThumbnail((sContent as ModuleVideo).youtubeUrl)}
                                       alt={sContent.title}
                                       className="w-full h-full object-cover"
                                     />
@@ -2181,7 +2181,7 @@ const ModuleManager = ({ downloadLink, onDownloadLinkChange, onSaveSettings, pla
                                   <div className="aspect-[4/5] rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-mro-cyan/20 relative flex items-center justify-center">
                                     {(sContent as ModuleButton).coverUrl ? (
                                       <img 
-                                        src={(sContent as ModuleButton).coverUrl}
+                                        src={storageAssetUrl((sContent as ModuleButton).coverUrl)}
                                         alt={sContent.title}
                                         className="w-full h-full object-cover"
                                       />
