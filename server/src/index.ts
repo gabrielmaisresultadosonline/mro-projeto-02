@@ -19,7 +19,7 @@ import { env } from "./env.js";
 import { healthCheck } from "./db.js";
 import { restRouter } from "./rest/router.js";
 import { authRouter } from "./auth/router.js";
-import { storageRouter } from "./storage/router.js";
+import { ensureStorageWritable, storageRouter } from "./storage/router.js";
 import { functionsRouter, functionsRuntime, functionsStatus, listAvailableFunctions, shutdownFunctions } from "./functions/host.js";
 import { attachRealtime, realtimeStatus } from "./realtime.js";
 import { RestError } from "./rest/identifiers.js";
@@ -132,10 +132,18 @@ function asyncRouter(router: express.Router): express.Router {
 const server = http.createServer(app);
 attachRealtime(server);
 
-server.listen(env.port, () => {
-  console.log(`[api] backend no ar em http://127.0.0.1:${env.port}`);
-  console.log(`[api] funções disponíveis: ${listAvailableFunctions().length}`);
-  console.log(`[api] storage em ${env.storage.root}`);
+async function startServer(): Promise<void> {
+  await ensureStorageWritable();
+  server.listen(env.port, () => {
+    console.log(`[api] backend no ar em http://127.0.0.1:${env.port}`);
+    console.log(`[api] funções disponíveis: ${listAvailableFunctions().length}`);
+    console.log(`[api] storage gravável em ${env.storage.root}`);
+  });
+}
+
+startServer().catch((error) => {
+  console.error(`[api] inicialização bloqueada: storage sem permissão em ${env.storage.root}`, error);
+  process.exit(1);
 });
 
 for (const signal of ["SIGTERM", "SIGINT"] as const) {

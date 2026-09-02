@@ -238,6 +238,10 @@ sudo mkdir -p "$STORAGE_DIR"
 sudo chown -R "$(id -u):$(id -g)" "$STORAGE_DIR"
 sudo find "$STORAGE_DIR" -type d -exec chmod 755 {} +
 sudo find "$STORAGE_DIR" -type f -exec chmod 644 {} +
+mkdir -p "$STORAGE_DIR/assets/announcements"
+STORAGE_PROBE="$STORAGE_DIR/assets/announcements/.deploy-write-test"
+printf 'ok' > "$STORAGE_PROBE" || fail "Sem permissão de escrita em $STORAGE_DIR/assets/announcements."
+rm -f "$STORAGE_PROBE"
 ok "Uploads em $STORAGE_DIR ($(du -sh "$STORAGE_DIR" 2>/dev/null | cut -f1) usados)."
 
 # ---------- 6. Frontend ----------
@@ -303,6 +307,33 @@ for attempt in $(seq 1 20); do
   fi
   sleep 1
 done
+
+# Testa exatamente o fluxo usado pelo painel de avisos: corpo binário, bucket
+# assets e subdiretório announcements. Se falhar, exibe os logs e interrompe o
+# deploy em vez de deixar o erro aparecer depois no navegador.
+UPLOAD_CHECK_NAME="announcements/.deploy-${RANDOM}-$(date +%s).jpg"
+UPLOAD_CHECK_BODY="$(mktemp)"
+printf '\377\330\377\331' > "$UPLOAD_CHECK_BODY"
+UPLOAD_CHECK_STATUS="$(curl -sS --max-time 15 -o /tmp/mro-upload-check-response -w '%{http_code}' -X PUT \
+  -H "apikey: $ANON_KEY" \
+  -H "Authorization: Bearer $ANON_KEY" \
+  -H "Content-Type: image/jpeg" \
+  -H "x-upsert: true" \
+  --data-binary "@$UPLOAD_CHECK_BODY" \
+  "http://127.0.0.1:${PORT_LOCAL}/storage/v1/object/assets/${UPLOAD_CHECK_NAME}" || true)"
+rm -f "$UPLOAD_CHECK_BODY"
+if [ "$UPLOAD_CHECK_STATUS" = "200" ]; then
+  rm -f "$STORAGE_DIR/assets/$UPLOAD_CHECK_NAME"
+  psql -v ON_ERROR_STOP=0 -d "$DATABASE_URL" \
+    -c "DELETE FROM storage_objects WHERE bucket_id = 'assets' AND name = '${UPLOAD_CHECK_NAME}'" >/dev/null 2>&1 || true
+  ok "Upload de imagens dos avisos validado no armazenamento local."
+else
+  echo "  Resposta do upload (${UPLOAD_CHECK_STATUS:-sem status}):"
+  head -c 2000 /tmp/mro-upload-check-response 2>/dev/null || true; echo
+  tail -n 80 /var/log/mro/api-error.log 2>/dev/null || true
+  fail "Upload local indisponível; deploy bloqueado para evitar falhas no /admin."
+fi
+rm -f /tmp/mro-upload-check-response
 
 # Atualiza somente a rota pública de mídia dentro do virtual host já ativo.
 # O restante da configuração (incluindo certificados TLS) é preservado.
