@@ -6,7 +6,7 @@ import {
   TutorialModule, ModuleContent, ModuleVideo, ModuleText, ModuleButton, ModuleSection, ModuleColor, getYoutubeThumbnail,
   saveModulesToCloud, loadModulesFromCloud, SectionContent, ModulePlatform, AdminData, getModulesStorageKey, ModuleProductAd
 } from '@/lib/adminConfig';
-import { supabase } from '@/integrations/supabase/client';
+import { adminSupabase as supabase } from '@/lib/adminSupabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
