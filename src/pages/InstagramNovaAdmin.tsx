@@ -1160,12 +1160,32 @@ Participe também do nosso GRUPO DE AVISOS
 
           if (data?.status === "completed" || data?.status === "paid") {
             console.log(`[AUTO-CHECK] ✅ Pagamento confirmado para ${order.nsu_order}`);
+            void logPanelEvent({
+              event_type: "payment_auto_check",
+              status: "confirmed",
+              order,
+              result_message: `Pagamento reconhecido automaticamente (status ${data.status})`,
+              payload: { minutes_since_creation: minutesSinceCreation },
+            });
             return { order, status: data.status };
           } else {
             console.log(`[AUTO-CHECK] ⏳ Aguardando pagamento: ${order.nsu_order}`);
+            void logPanelEvent({
+              event_type: "payment_auto_check",
+              status: "not_recognized",
+              order,
+              result_message: `Pagamento ainda não reconhecido (retorno: ${data?.status ?? "sem status"})`,
+              payload: { response: data ?? null, minutes_since_creation: minutesSinceCreation },
+            });
           }
         } catch (e) {
           console.error(`[AUTO-CHECK] Erro ao verificar ${order.nsu_order}:`, e);
+          void logPanelEvent({
+            event_type: "payment_auto_check",
+            status: "error",
+            order,
+            result_message: `Erro ao verificar pagamento: ${String(e)}`,
+          });
         }
         return null;
       });
