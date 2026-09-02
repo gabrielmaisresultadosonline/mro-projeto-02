@@ -86,6 +86,17 @@ function canManageStorage(req: Request): boolean {
   return isServiceRole(resolveAuth(req)) || hasValidAdminSession(req);
 }
 
+/**
+ * Arquivos de configuração publicados pelo painel (avisos, módulos, etc.).
+ * No backend anterior eles eram lidos por qualquer visitante — o popup de
+ * avisos roda antes de existir sessão. Liberamos SOMENTE leitura, e apenas
+ * para os JSONs dentro de `admin/`.
+ */
+function isPublicConfigObject(bucket: string, name: string): boolean {
+  return bucket === "user-data" && /^admin\/[^/]+\.json$/i.test(name);
+}
+
+
 
 
 
@@ -345,7 +356,12 @@ storageRouter.get("/object/:bucket/*", async (req, res) => {
   const name = objectPathFromRequest(req);
   const auth = resolveAuth(req);
 
-  if (auth.role === "anon" && !canManageStorage(req) && !(await isPublicBucket(bucket))) {
+  if (
+    auth.role === "anon" &&
+    !canManageStorage(req) &&
+    !isPublicConfigObject(bucket, name) &&
+    !(await isPublicBucket(bucket))
+  ) {
     throw new RestError(401, "Autenticação necessária.");
   }
   await streamFile(bucket, name, req, res);

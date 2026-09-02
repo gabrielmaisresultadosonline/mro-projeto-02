@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { storageAssetUrl } from '@/lib/assetUrl';
 import { X, Bell, Clock } from 'lucide-react';
 
 interface Announcement {
@@ -283,7 +284,7 @@ const AnnouncementPopup = ({ onComplete, targetArea }: AnnouncementPopupProps) =
 
           {currentAnnouncement.thumbnailUrl && (
             <img 
-              src={currentAnnouncement.thumbnailUrl} 
+              src={storageAssetUrl(currentAnnouncement.thumbnailUrl)} 
               alt="" 
               className="w-full rounded-lg object-contain max-h-80"
               onError={(e) => e.currentTarget.style.display = 'none'}

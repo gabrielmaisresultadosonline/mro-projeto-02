@@ -210,12 +210,14 @@ const AnnouncementsManager = ({ filterArea }: AnnouncementsManagerProps = {}) =>
 
       console.log('📝 Salvando admin/announcements.json');
       const regularBlob = new Blob([JSON.stringify(regularPayload, null, 2)], { type: 'application/json' });
-      await supabase.storage
+      const { error: regularUploadError } = await supabase.storage
         .from('user-data')
         .upload('admin/announcements.json', regularBlob, { 
           upsert: true,
           contentType: 'application/json'
         });
+      // Falha silenciosa aqui era o motivo do aviso "sumir" depois de salvar.
+      if (regularUploadError) throw regularUploadError;
 
       // 2. Salvar anúncios de extensão em arquivos separados
       const allGroupKeys = Object.keys(groups);
