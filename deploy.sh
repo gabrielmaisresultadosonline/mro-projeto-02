@@ -320,8 +320,6 @@ functions_block = """    location /functions/v1/ {
         proxy_request_buffering off;
         proxy_read_timeout 120s;
         proxy_connect_timeout 10s;
-        add_header 'Access-Control-Allow-Origin' $http_origin always;
-        add_header 'Access-Control-Allow-Credentials' 'true' always;
     }"""
 loc_regex = re.compile(r"(?ms)^\s*location\s+/storage/v1/object/public/\s*\{[^{}]*\}")
 fn_regex = re.compile(r"(?ms)^\s*location\s+/functions/v1/?\s*\{[^{}]*\}")
@@ -382,17 +380,18 @@ if [ "$CUTOVER" = true ]; then
   # O login e várias áreas dependem de Edge Functions. Um /health saudável não
   # basta: iniciamos uma função real pelo mesmo proxy usado no navegador.
   FUNCTION_CHECK_BODY="$(mktemp)"
-  FUNCTION_CHECK_STATUS="$(curl -sS --max-time 75 -o "$FUNCTION_CHECK_BODY" -w '%{http_code}' -X POST \
+  FUNCTION_CHECK_STATUS=""
+  if FUNCTION_CHECK_STATUS="$(curl -sS --max-time 75 -o "$FUNCTION_CHECK_BODY" -w '%{http_code}' -X POST \
       -H "Origin: https://maisresultadosonline.com.br" \
       -H "apikey: $ANON_KEY" \
       -H "Authorization: Bearer $ANON_KEY" \
       -H "Content-Type: application/json" \
       --data '{"action":"verify_user","username":"__deploy_healthcheck__"}' \
-      "http://127.0.0.1:${PORT_LOCAL}/functions/v1/mro-tool-api" || true)"
-  if [[ "$FUNCTION_CHECK_STATUS" =~ ^[234] ]]; then
-    ok "Edge Function de login iniciou e respondeu pelo proxy local."
+      "${API_URL_FINAL%/}/functions/v1/mro-tool-api")" \
+      && [[ "$FUNCTION_CHECK_STATUS" =~ ^[234] ]]; then
+    ok "Edge Function de login respondeu integralmente pelo domínio público."
   else
-    echo "  Resposta local (${FUNCTION_CHECK_STATUS:-sem status}):"
+    echo "  Resposta pública (${FUNCTION_CHECK_STATUS:-sem status}):"
     head -c 4000 "$FUNCTION_CHECK_BODY" 2>/dev/null || true; echo
     echo "  Últimas saídas do backend:"
     tail -n 100 /var/log/mro/api-out.log 2>/dev/null || true

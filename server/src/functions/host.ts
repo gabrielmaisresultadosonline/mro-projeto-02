@@ -293,14 +293,34 @@ functionsRouter.all("/:name", async (req, res) => {
   res.status(upstream.status);
   upstream.headers.forEach((value, key) => {
     const normalized = key.toLowerCase();
-    // O CORS é definido uma única vez pelo Express. Muitas funções antigas
-    // retornam `Allow-Origin: *`, que sobrescrevia a origem refletida pelo
-    // proxy e fazia o navegador rejeitar a resposta real após o preflight.
-    if (normalized === "content-encoding" || normalized === "vary" || normalized.startsWith("access-control-")) return;
+    // fetch() descompacta gzip/br automaticamente, mas mantém os headers da
+    // resposta comprimida. Repassar aquele Content-Length faz o Express/Nginx
+    // anunciar mais bytes do que res.end() realmente envia, causando curl (18)
+    // e ERR_HTTP2_PROTOCOL_ERROR no navegador. Headers hop-by-hop também não
+    // podem atravessar este proxy; o Node deve recalcular o enquadramento.
+    const blockedHeaders = new Set([
+      "connection",
+      "content-encoding",
+      "content-length",
+      "keep-alive",
+      "proxy-authenticate",
+      "proxy-authorization",
+      "te",
+      "trailer",
+      "transfer-encoding",
+      "upgrade",
+      "vary",
+    ]);
+    // O CORS é definido uma única vez pelo middleware do Express. Muitas
+    // funções antigas retornam `Allow-Origin: *`, incompatível com credenciais.
+    if (blockedHeaders.has(normalized) || normalized.startsWith("access-control-")) return;
     res.setHeader(key, value);
   });
 
   const payload = Buffer.from(await upstream.arrayBuffer());
+  // Define o tamanho do corpo já descompactado. Isto evita chunking ambíguo e
+  // garante enquadramento idêntico em HTTP/1.1 e no HTTP/2 externo do Nginx.
+  res.setHeader("Content-Length", String(payload.byteLength));
   res.end(payload);
 });
 
