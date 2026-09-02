@@ -39,7 +39,24 @@ const jsonBody = express.json({ limit: "50mb" });
  */
 function parseObjectUpload(req: Request, res: Response, next: NextFunction): void {
   if (req.is("multipart/form-data")) {
-    upload.single("file")(req, res, next);
+    upload.single("file")(req, res, (error?: unknown) => {
+      if (!error) {
+        next();
+        return;
+      }
+      if (error instanceof multer.MulterError) {
+        next(new RestError(
+          error.code === "LIMIT_FILE_SIZE" ? 413 : 400,
+          error.code === "LIMIT_FILE_SIZE"
+            ? "Arquivo maior que o limite permitido."
+            : "Não foi possível interpretar o arquivo enviado.",
+          error.message,
+          error.code,
+        ));
+        return;
+      }
+      next(error);
+    });
     return;
   }
   rawObjectUpload(req, res, next);

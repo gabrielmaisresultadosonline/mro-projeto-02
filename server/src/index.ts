@@ -95,6 +95,17 @@ app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
     return;
   }
 
+  const bodyError = error as { type?: string; status?: number; message?: string };
+  if (bodyError?.type === "entity.too.large" || bodyError?.status === 413) {
+    res.status(413).json({
+      message: "Arquivo maior que o limite permitido.",
+      details: bodyError.message ?? null,
+      hint: null,
+      code: "PAYLOAD_TOO_LARGE",
+    });
+    return;
+  }
+
   const pgError = error as { message?: string; code?: string; detail?: string; hint?: string };
   const isPgError = typeof pgError?.code === "string" && /^[0-9A-Z]{5}$/.test(pgError.code);
 
