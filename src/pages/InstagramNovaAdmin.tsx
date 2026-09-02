@@ -67,6 +67,7 @@ import WppBotPanel from "@/components/admin/WppBotPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const ADMIN_SESSION_STORAGE_KEY = "mro_instagram_admin_session";
+const ORDERS_CACHE_STORAGE_KEY = "mro_instagram_admin_orders_cache_v1";
 
 // Configurações do template de mensagem
 const MEMBER_LINK = "https://maisresultadosonline.com.br/instagram";
@@ -120,6 +121,7 @@ export default function InstagramNovaAdmin() {
   const [orders, setOrders] = useState<MROOrder[]>([]);
   const ordersRef = useRef<MROOrder[]>([]);
   const [loading, setLoading] = useState(false);
+  const [refreshingOrders, setRefreshingOrders] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "paid" | "completed" | "expired">("all");
   
@@ -806,9 +808,21 @@ Participe também do nosso GRUPO DE AVISOS
   useEffect(() => {
     const storedToken = localStorage.getItem(ADMIN_SESSION_STORAGE_KEY);
     if (storedToken) {
+      try {
+        const cachedOrders = sessionStorage.getItem(ORDERS_CACHE_STORAGE_KEY);
+        if (cachedOrders) {
+          const parsed = JSON.parse(cachedOrders) as MROOrder[];
+          if (Array.isArray(parsed)) {
+            setOrders(parsed);
+            ordersRef.current = parsed;
+          }
+        }
+      } catch (error) {
+        console.warn("Não foi possível restaurar o cache de pedidos:", error);
+      }
       setAdminSessionToken(storedToken);
       setIsAuthenticated(true);
-      loadOrders(storedToken);
+      loadOrders(storedToken, { silent: ordersRef.current.length > 0 });
       loadWebhookConfig();
     } else {
       localStorage.removeItem("mro_admin_auth");
@@ -934,14 +948,21 @@ Participe também do nosso GRUPO DE AVISOS
     toast.info("Logout realizado");
   };
 
-  const loadOrders = async (tokenOverride?: string) => {
+  const loadOrders = async (
+    tokenOverride?: string,
+    options: { silent?: boolean } = {},
+  ) => {
     const token = getAdminSessionToken(tokenOverride);
     if (!token) {
       setOrders([]);
+      ordersRef.current = [];
+      sessionStorage.removeItem(ORDERS_CACHE_STORAGE_KEY);
       return;
     }
 
-    setLoading(true);
+    const silent = options.silent === true || ordersRef.current.length > 0;
+    if (silent) setRefreshingOrders(true);
+    else setLoading(true);
     try {
       const { data: response, error } = await supabase.functions.invoke("instagram-admin", {
         body: { action: "listOrders", token }
@@ -954,7 +975,6 @@ Participe também do nosso GRUPO DE AVISOS
         console.error("Error loading orders:", error || response?.error);
         // Não mostrar erro de toast aqui se for apenas carregamento automático silencioso
         if (!tokenOverride) toast.error(response?.error || "Erro ao carregar pedidos");
-        setLoading(false);
         return;
       }
 
@@ -1006,11 +1026,17 @@ Participe também do nosso GRUPO DE AVISOS
       // conforme solicitado pelo usuário para "voltar como estava antes"
       setOrders(processedOrders);
       ordersRef.current = processedOrders;
+      try {
+        sessionStorage.setItem(ORDERS_CACHE_STORAGE_KEY, JSON.stringify(processedOrders));
+      } catch (error) {
+        console.warn("Não foi possível atualizar o cache de pedidos:", error);
+      }
     } catch (error) {
       console.error("Error:", error);
       toast.error("Erro ao carregar dados");
     } finally {
       setLoading(false);
+      setRefreshingOrders(false);
     }
   };
 
@@ -1034,7 +1060,7 @@ Participe também do nosso GRUPO DE AVISOS
         // Recarregar a cada 15 segundos se não há pedidos recentes
         const timeSinceLastLoad = localStorage.getItem("mro_last_load_time");
         if (!timeSinceLastLoad || Date.now() - parseInt(timeSinceLastLoad) > 15000) {
-          loadOrders();
+          loadOrders(undefined, { silent: true });
           localStorage.setItem("mro_last_load_time", Date.now().toString());
         }
         return;
@@ -1101,7 +1127,7 @@ Participe também do nosso GRUPO DE AVISOS
 
 
       setLastAutoCheck(new Date());
-      loadOrders();
+      await loadOrders(undefined, { silent: true });
     } catch (error) {
       console.error("[AUTO-CHECK] Erro:", error);
     }
@@ -1140,7 +1166,7 @@ Participe também do nosso GRUPO DE AVISOS
       }
 
 
-      loadOrders();
+      await loadOrders(undefined, { silent: true });
     } catch (error) {
       console.error("Error:", error);
       toast.error("Erro ao verificar");
