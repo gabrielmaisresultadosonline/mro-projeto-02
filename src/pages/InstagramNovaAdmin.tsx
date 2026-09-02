@@ -1041,11 +1041,37 @@ Participe também do nosso GRUPO DE AVISOS
             data?.forEach((order) => {
               if (updatedSet.has(order.id)) {
                 order.api_created = true;
+                void logPanelEvent({
+                  event_type: "access_provisioned",
+                  status: "success",
+                  order,
+                  result_message: "Acesso criado/reconhecido na API automaticamente",
+                });
               }
             });
           }
+
+          const notProvisioned = ordersToVerify.filter(
+            (order) => !(verifyResult?.updatedIds || []).includes(order.id),
+          );
+          notProvisioned.forEach((order) => {
+            void logPanelEvent({
+              event_type: "access_provisioned",
+              status: "pending",
+              order,
+              result_message: "Pedido pago sem acesso criado na API — requer verificação manual",
+            });
+          });
         } catch (verifyError) {
           console.error("[API-VERIFY] Erro na verificação:", verifyError);
+          ordersToVerify.forEach((order) => {
+            void logPanelEvent({
+              event_type: "access_provisioned",
+              status: "error",
+              order,
+              result_message: `Falha ao verificar acesso na API: ${String(verifyError)}`,
+            });
+          });
         }
       }
 
