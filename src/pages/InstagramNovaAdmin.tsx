@@ -67,6 +67,7 @@ import WppBotPanel from "@/components/admin/WppBotPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const ADMIN_SESSION_STORAGE_KEY = "mro_instagram_admin_session";
+const ORDERS_CACHE_STORAGE_KEY = "mro_instagram_admin_orders_cache_v1";
 
 // Configurações do template de mensagem
 const MEMBER_LINK = "https://maisresultadosonline.com.br/instagram";
@@ -120,10 +121,12 @@ export default function InstagramNovaAdmin() {
   const [orders, setOrders] = useState<MROOrder[]>([]);
   const ordersRef = useRef<MROOrder[]>([]);
   const [loading, setLoading] = useState(false);
+  const [refreshingOrders, setRefreshingOrders] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "paid" | "completed" | "expired">("all");
   
   const autoCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const autoCheckRunningRef = useRef(false);
   const logsAutoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [autoCheckEnabled, setAutoCheckEnabled] = useState(true);
   const [lastAutoCheck, setLastAutoCheck] = useState<Date | null>(null);
@@ -806,9 +809,21 @@ Participe também do nosso GRUPO DE AVISOS
   useEffect(() => {
     const storedToken = localStorage.getItem(ADMIN_SESSION_STORAGE_KEY);
     if (storedToken) {
+      try {
+        const cachedOrders = sessionStorage.getItem(ORDERS_CACHE_STORAGE_KEY);
+        if (cachedOrders) {
+          const parsed = JSON.parse(cachedOrders) as MROOrder[];
+          if (Array.isArray(parsed)) {
+            setOrders(parsed);
+            ordersRef.current = parsed;
+          }
+        }
+      } catch (error) {
+        console.warn("Não foi possível restaurar o cache de pedidos:", error);
+      }
       setAdminSessionToken(storedToken);
       setIsAuthenticated(true);
-      loadOrders(storedToken);
+      loadOrders(storedToken, { silent: ordersRef.current.length > 0 });
       loadWebhookConfig();
     } else {
       localStorage.removeItem("mro_admin_auth");
@@ -928,20 +943,29 @@ Participe também do nosso GRUPO DE AVISOS
   const handleLogout = () => {
     clearAdminSession();
     setOrders([]);
+    ordersRef.current = [];
+    sessionStorage.removeItem(ORDERS_CACHE_STORAGE_KEY);
     if (autoCheckIntervalRef.current) {
       clearInterval(autoCheckIntervalRef.current);
     }
     toast.info("Logout realizado");
   };
 
-  const loadOrders = async (tokenOverride?: string) => {
+  const loadOrders = async (
+    tokenOverride?: string,
+    options: { silent?: boolean } = {},
+  ) => {
     const token = getAdminSessionToken(tokenOverride);
     if (!token) {
       setOrders([]);
+      ordersRef.current = [];
+      sessionStorage.removeItem(ORDERS_CACHE_STORAGE_KEY);
       return;
     }
 
-    setLoading(true);
+    const silent = options.silent === true || ordersRef.current.length > 0;
+    if (silent) setRefreshingOrders(true);
+    else setLoading(true);
     try {
       const { data: response, error } = await supabase.functions.invoke("instagram-admin", {
         body: { action: "listOrders", token }
@@ -953,8 +977,7 @@ Participe também do nosso GRUPO DE AVISOS
         }
         console.error("Error loading orders:", error || response?.error);
         // Não mostrar erro de toast aqui se for apenas carregamento automático silencioso
-        if (!tokenOverride) toast.error(response?.error || "Erro ao carregar pedidos");
-        setLoading(false);
+        if (!silent) toast.error(response?.error || "Erro ao carregar pedidos");
         return;
       }
 
@@ -1006,16 +1029,24 @@ Participe também do nosso GRUPO DE AVISOS
       // conforme solicitado pelo usuário para "voltar como estava antes"
       setOrders(processedOrders);
       ordersRef.current = processedOrders;
+      try {
+        sessionStorage.setItem(ORDERS_CACHE_STORAGE_KEY, JSON.stringify(processedOrders));
+      } catch (error) {
+        console.warn("Não foi possível atualizar o cache de pedidos:", error);
+      }
     } catch (error) {
       console.error("Error:", error);
       toast.error("Erro ao carregar dados");
     } finally {
       setLoading(false);
+      setRefreshingOrders(false);
     }
   };
 
   // Verificar pagamentos pendentes automaticamente (apenas pedidos dos últimos 30 min)
   const checkPendingPayments = async () => {
+    if (autoCheckRunningRef.current) return;
+    autoCheckRunningRef.current = true;
     try {
       const now = new Date();
       const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000);
@@ -1034,7 +1065,7 @@ Participe também do nosso GRUPO DE AVISOS
         // Recarregar a cada 15 segundos se não há pedidos recentes
         const timeSinceLastLoad = localStorage.getItem("mro_last_load_time");
         if (!timeSinceLastLoad || Date.now() - parseInt(timeSinceLastLoad) > 15000) {
-          loadOrders();
+          loadOrders(undefined, { silent: true });
           localStorage.setItem("mro_last_load_time", Date.now().toString());
         }
         return;
@@ -1101,9 +1132,11 @@ Participe também do nosso GRUPO DE AVISOS
 
 
       setLastAutoCheck(new Date());
-      loadOrders();
+      await loadOrders(undefined, { silent: true });
     } catch (error) {
       console.error("[AUTO-CHECK] Erro:", error);
+    } finally {
+      autoCheckRunningRef.current = false;
     }
   };
 
@@ -1140,7 +1173,7 @@ Participe também do nosso GRUPO DE AVISOS
       }
 
 
-      loadOrders();
+      await loadOrders(undefined, { silent: true });
     } catch (error) {
       console.error("Error:", error);
       toast.error("Erro ao verificar");
@@ -1281,22 +1314,20 @@ Participe também do nosso GRUPO DE AVISOS
       let cleanName = order.username;
       const messageText = formatWebhookMessage(webhookConfig.message_template, order);
 
-      const response = await fetch("https://adljdeekwifwcdcgbpit.supabase.co/functions/v1/crm-webhook", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const { data: result, error: invokeError } = await supabase.functions.invoke("crm-webhook", {
+        body: {
           webhook_id: webhookConfig.webhook_id,
           token: webhookConfig.token,
           to: phone,
           message: messageText,
           variables: [cleanName, order.username, order.username, MEMBER_LINK],
           order_id: order.id
-        })
+        },
       });
 
-      const result = await response.json();
+      if (invokeError) throw invokeError;
       
-      if (result.success || result.duplicate) {
+      if (result?.success || result?.duplicate) {
         if (isTest) {
           if (result.duplicate) toast.info("Este pedido já foi enviado via API anteriormente.");
           else toast.success("Webhook enviado com sucesso!");
@@ -2878,7 +2909,7 @@ Acesse seu resumo aqui: ${window.location.origin}/resumo/${affId.toLowerCase()}`
               className="h-9 px-2 md:px-3 border-zinc-600 text-zinc-300 text-xs md:text-sm"
               disabled={loading}
             >
-              <RefreshCw className={`w-4 h-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+              <RefreshCw className={`w-4 h-4 mr-1.5 ${loading || refreshingOrders ? "animate-spin" : ""}`} />
               <span className="hidden sm:inline">Atualizar</span>
             </Button>
             <Button

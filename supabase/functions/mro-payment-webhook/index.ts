@@ -427,12 +427,16 @@ serve(async (req) => {
     const orderNsu = payload.order_nsu as string | undefined;
     const items = (payload.items || []) as Array<{ description?: string; name?: string }>;
     
-    // Suportar status 'APPROVED', 'paid', 'APPROVED_PAYMENT' da InfiniPay
-    const isPaid = 
-      payload.paid === true || 
-      payload.status === "paid" || 
-      payload.status === "APPROVED" || 
-      payload.status === "APPROVED_PAYMENT";
+    // Normalizar os status pagos que podem chegar da InfiniPay ou da verificação interna.
+    const normalizedPaymentStatus = typeof payload.status === "string"
+      ? payload.status.trim().toUpperCase()
+      : "";
+    const isPaid = payload.paid === true || [
+      "PAID",
+      "APPROVED",
+      "APPROVED_PAYMENT",
+      "COMPLETED",
+    ].includes(normalizedPaymentStatus);
 
     log("Check payment status", { 
       orderNsu, 
