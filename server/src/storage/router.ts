@@ -237,11 +237,13 @@ async function fetchFromFallback(
           owner: null,
         }).catch(() => undefined);
       }
+      missingCache.delete(cacheKey);
       return true;
     } catch {
       // Origem indisponível: tenta a próxima.
     }
   }
+  missingCache.set(cacheKey, Date.now());
   return false;
 }
 
