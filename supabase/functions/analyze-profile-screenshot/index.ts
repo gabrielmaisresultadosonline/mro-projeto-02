@@ -6,15 +6,30 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-type Provider = 'gateway' | 'google';
+type Provider = 'openai' | 'deepseek' | 'google' | 'gateway';
+
+/** Mapeia a chave salva no /admin para o provedor correspondente. */
+function providerFromToken(name: string, value: string): Provider {
+  const n = name.toLowerCase();
+  if (n.includes('deepseek')) return 'deepseek';
+  if (n.includes('openai') || n.includes('chatgpt') || n.includes('gpt')) return 'openai';
+  if (value.startsWith('AIza')) return 'google';
+  if (n.includes('gemini') || n.includes('google')) return 'google';
+  return 'gateway';
+}
 
 /**
  * Resolve a chave de IA disponível.
  * Prioridade: tokens salvos no /admin (tabela api_tokens) → variáveis de ambiente.
- * Chaves que começam com "AIza" são do Google (Gemini direto); as demais usam o gateway.
+ * Aceita OpenAI (ChatGPT) e DeepSeek — basta colar o token na aba Tokens do /admin.
  */
 async function resolveAiKey(): Promise<{ key: string; provider: Provider; source: string } | null> {
-  const candidates = ['gemini', 'gemini_api_key', 'google_ai', 'google_api_key', 'lovable', 'lovable_api_key', 'openai'];
+  const candidates = [
+    'openai', 'openai_api_key', 'chatgpt', 'gpt',
+    'deepseek', 'deepseek_api_key',
+    'gemini', 'gemini_api_key', 'google_ai', 'google_api_key',
+    'lovable', 'lovable_api_key',
+  ];
 
   try {
     const url = Deno.env.get('SUPABASE_URL');
@@ -27,11 +42,7 @@ async function resolveAiKey(): Promise<{ key: string; provider: Provider; source
           const row = data.find((r: { key: string; value: string }) => r.key === wanted && r.value?.trim());
           if (row) {
             const value = String(row.value).trim();
-            return {
-              key: value,
-              provider: value.startsWith('AIza') ? 'google' : 'gateway',
-              source: `admin:${wanted}`,
-            };
+            return { key: value, provider: providerFromToken(wanted, value), source: `admin:${wanted}` };
           }
         }
       }
@@ -39,6 +50,12 @@ async function resolveAiKey(): Promise<{ key: string; provider: Provider; source
   } catch (error) {
     console.error('⚠️ Falha ao ler api_tokens:', (error as Error).message);
   }
+
+  const envOpenai = Deno.env.get('OPENAI_API_KEY');
+  if (envOpenai) return { key: envOpenai, provider: 'openai', source: 'env:OPENAI_API_KEY' };
+
+  const envDeepseek = Deno.env.get('DEEPSEEK_API_KEY');
+  if (envDeepseek) return { key: envDeepseek, provider: 'deepseek', source: 'env:DEEPSEEK_API_KEY' };
 
   const envGoogle = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_AI_API_KEY');
   if (envGoogle) return { key: envGoogle, provider: 'google', source: 'env:GEMINI_API_KEY' };
@@ -48,6 +65,44 @@ async function resolveAiKey(): Promise<{ key: string; provider: Provider; source
 
   return null;
 }
+
+/** Chamada OpenAI-compatível (OpenAI/ChatGPT, DeepSeek e gateway Lovable). */
+async function callOpenAICompatible(opts: {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  systemPrompt: string;
+  userPrompt: string;
+  imageUrl: string;
+  label: string;
+}) {
+  const response = await fetch(`${opts.baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${opts.apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: opts.model,
+      messages: [
+        { role: 'system', content: opts.systemPrompt },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: opts.userPrompt },
+            { type: 'image_url', image_url: { url: opts.imageUrl } },
+          ],
+        },
+      ],
+      temperature: 0.2,
+      max_tokens: 2500,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`${opts.label} ${response.status}: ${(await response.text()).slice(0, 400)}`);
+  }
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content as string | undefined;
+}
+
 
 /** Converte a imagem (URL) para base64 quando o cliente não enviou os bytes. */
 async function fetchImageBase64(url: string): Promise<{ data: string; mime: string } | null> {
