@@ -284,7 +284,7 @@ done
 # O restante da configuração (incluindo certificados TLS) é preservado.
 if command -v nginx >/dev/null 2>&1 && [ -d /etc/nginx/sites-enabled ]; then
   step "Configurando streaming de mídias no Nginx"
-  API_DOMAIN="$(echo "${PUBLIC_API_URL:-api.maisresultadosonline.com.br}" | sed -E 's|https?://||; s|/.*|')"
+  API_DOMAIN="$(echo "${PUBLIC_API_URL:-api.maisresultadosonline.com.br}" | sed -E 's|https?://||; s|/.*$||')"
   # -R segue os links de sites-enabled. A busca ampla também cobre instalações
   # que mantêm o vhost diretamente em nginx.conf ou apenas em sites-available.
   API_NGINX_CONFIG="$(sudo grep -RlE --include='*.conf' --include='*mro*' --include='*api*' \
