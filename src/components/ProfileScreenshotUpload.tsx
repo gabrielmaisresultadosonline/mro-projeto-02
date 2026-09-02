@@ -133,31 +133,38 @@ export const ProfileScreenshotUpload = ({
 
             if (analysisError) throw analysisError;
 
-            if (analysisData?.success === false) {
-              if (analysisData?.error === 'not_instagram_profile' || analysisData?.error === 'username_mismatch') {
-                // CRITICAL: Restore the previously saved screenshot in DB.
-                // Only an admin can permanently remove a saved print.
-                await restoreStoredScreenshot({
-                  username,
-                  squarecloudUsername,
-                  screenshotUrl: previousScreenshotUrl,
-                });
-                toast.error(
-                  analysisData?.message ||
-                    (analysisData?.error === 'username_mismatch'
-                      ? `O print enviado não corresponde ao perfil @${username}. Troque o print e tente novamente.`
-                      : 'Este print não parece ser de um perfil do Instagram. Envie um print real do perfil que está utilizando.')
-                );
-                // Keep the previously saved print visible; do NOT call onScreenshotRemoved.
-                setPreviewUrl(previousScreenshotUrl);
-                setSelectedFile(null);
-                if (fileInputRef.current) fileInputRef.current.value = '';
-                if (!previousScreenshotUrl) {
-                  // Only when there was no saved print before, tell parent there's nothing.
-                  onScreenshotRemoved?.();
-                }
-                return;
+            // Qualquer falha da análise deve interromper o fluxo e mostrar o motivo real.
+            if (analysisData?.success === false || !analysisData?.extracted_data) {
+              const failureCode = analysisData?.error as string | undefined;
+              const isProfileMismatch =
+                failureCode === 'not_instagram_profile' || failureCode === 'username_mismatch';
+
+              // CRITICAL: Restore the previously saved screenshot in DB.
+              // Only an admin can permanently remove a saved print.
+              await restoreStoredScreenshot({
+                username,
+                squarecloudUsername,
+                screenshotUrl: previousScreenshotUrl,
+              });
+
+              toast.error(
+                analysisData?.message ||
+                  (failureCode === 'username_mismatch'
+                    ? `O print enviado não corresponde ao perfil @${username}. Troque o print e tente novamente.`
+                    : isProfileMismatch
+                      ? 'Este print não parece ser de um perfil do Instagram. Envie um print real do perfil que está utilizando.'
+                      : 'Não foi possível analisar o print com IA agora. Tente novamente.')
+              );
+
+              // Keep the previously saved print visible; do NOT call onScreenshotRemoved.
+              setPreviewUrl(previousScreenshotUrl);
+              setSelectedFile(null);
+              if (fileInputRef.current) fileInputRef.current.value = '';
+              if (!previousScreenshotUrl) {
+                // Only when there was no saved print before, tell parent there's nothing.
+                onScreenshotRemoved?.();
               }
+              return;
             }
 
             const extracted = analysisData?.extracted_data;
