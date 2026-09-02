@@ -312,20 +312,25 @@ const AnnouncementsManager = ({ filterArea }: AnnouncementsManagerProps = {}) =>
       return null;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: 'Arquivo muito grande', description: 'Máximo 5MB', variant: 'destructive' });
+    if (file.size > 15 * 1024 * 1024) {
+      toast({ title: 'Arquivo muito grande', description: 'Máximo 15MB', variant: 'destructive' });
       return null;
     }
 
     setIsUploading(true);
     try {
-      const fileName = `announcements/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      
+      // Comprime antes de enviar: é o que tornava o upload lento/"travado".
+      const blob = await compressImage(file);
+      const converted = blob !== (file as unknown as Blob) && blob.type === 'image/jpeg';
+      const baseName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const safeName = converted ? `${baseName.replace(/\.[^.]+$/, '')}.jpg` : baseName;
+      const fileName = `announcements/${Date.now()}_${safeName}`;
+
       const { error: uploadError } = await supabase.storage
         .from('assets')
-        .upload(fileName, file, { 
+        .upload(fileName, blob, { 
           upsert: true,
-          contentType: file.type
+          contentType: blob.type || file.type
         });
 
       if (uploadError) throw uploadError;
@@ -335,10 +340,14 @@ const AnnouncementsManager = ({ filterArea }: AnnouncementsManagerProps = {}) =>
         .getPublicUrl(fileName);
 
       toast({ title: 'Imagem enviada!', description: 'Thumbnail atualizada com sucesso' });
-      return urlData.publicUrl;
+      return storageAssetUrl(urlData.publicUrl);
     } catch (error) {
       console.error('Erro ao fazer upload:', error);
-      toast({ title: 'Erro no upload', description: 'Não foi possível enviar a imagem', variant: 'destructive' });
+      toast({
+        title: 'Erro no upload',
+        description: error instanceof Error ? error.message : 'Não foi possível enviar a imagem',
+        variant: 'destructive',
+      });
       return null;
     } finally {
       setIsUploading(false);
