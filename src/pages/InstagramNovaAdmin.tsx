@@ -1090,6 +1090,19 @@ Participe também do nosso GRUPO DE AVISOS
 
       // Removida deduplicação agressiva para permitir ver todos os históricos (pendentes, expirados, etc)
       // conforme solicitado pelo usuário para "voltar como estava antes"
+      // Log de novos cadastros reconhecidos (comparado com o snapshot anterior)
+      const knownIds = new Set(ordersRef.current.map((order) => order.id));
+      processedOrders
+        .filter((order) => !knownIds.has(order.id))
+        .forEach((order) => {
+          void logPanelEvent({
+            event_type: "registration_detected",
+            status: order.status || "unknown",
+            order,
+            result_message: `Cadastro reconhecido no painel (status ${order.status})`,
+          });
+        });
+
       setOrders(processedOrders);
       ordersRef.current = processedOrders;
       try {
