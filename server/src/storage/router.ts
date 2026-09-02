@@ -10,7 +10,7 @@
  * permite listar, assinar e aplicar permissão sem varrer o filesystem.
  */
 
-import { Router, type Request } from "express";
+import express, { Router, type NextFunction, type Request, type Response } from "express";
 import multer from "multer";
 import path from "node:path";
 import fs from "node:fs/promises";
@@ -29,6 +29,21 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: env.storage.maxFileSizeBytes },
 });
+
+const rawObjectUpload = express.raw({ type: "*/*", limit: env.storage.maxFileSizeBytes });
+const jsonBody = express.json({ limit: "50mb" });
+
+/**
+ * O SDK envia Blob/File como binário puro. Integrações legadas podem enviar
+ * multipart/form-data. Apenas um parser pode consumir o stream da requisição.
+ */
+function parseObjectUpload(req: Request, res: Response, next: NextFunction): void {
+  if (req.is("multipart/form-data")) {
+    upload.single("file")(req, res, next);
+    return;
+  }
+  rawObjectUpload(req, res, next);
+}
 
 /**
  * Confirma no boot que o mesmo processo do backend consegue gravar no storage.
@@ -366,7 +381,7 @@ async function streamFile(
 
 
 /** URL assinada com HMAC e expiração — equivalente ao createSignedUrl. */
-storageRouter.post("/object/sign/:bucket/*", async (req, res) => {
+storageRouter.post("/object/sign/:bucket/*", jsonBody, async (req, res) => {
   const auth = resolveAuth(req);
   if (auth.role === "anon" && !canManageStorage(req)) {
     throw new RestError(401, "Autenticação necessária.");
@@ -431,7 +446,7 @@ storageRouter.get("/object/:bucket/*", async (req, res) => {
 });
 
 /** Listagem de objetos (usada pelo painel admin e pelo dump). */
-storageRouter.post("/object/list/:bucket", async (req, res) => {
+storageRouter.post("/object/list/:bucket", jsonBody, async (req, res) => {
   const bucket = req.params.bucket;
   const auth = resolveAuth(req);
   if (auth.role === "anon" && !canManageStorage(req) && !(await isPublicBucket(bucket))) {
@@ -480,15 +495,15 @@ storageRouter.post("/object/list/:bucket", async (req, res) => {
 });
 
 // As rotas específicas acima precisam ser registradas antes deste wildcard.
-storageRouter.post("/object/:bucket/*", upload.single("file"), handleObjectUpload);
+storageRouter.post("/object/:bucket/*", parseObjectUpload, handleObjectUpload);
 
 // O SDK usa PUT quando `upsert: true`.
-storageRouter.put("/object/:bucket/*", upload.single("file"), async (req, res) => {
+storageRouter.put("/object/:bucket/*", parseObjectUpload, async (req, res) => {
   req.headers["x-upsert"] = "true";
   await handleObjectUpload(req, res);
 });
 
-storageRouter.delete("/object/:bucket/*", async (req, res) => {
+storageRouter.delete("/object/:bucket/*", jsonBody, async (req, res) => {
   const auth = resolveAuth(req);
   if (auth.role === "anon" && !canManageStorage(req)) {
     throw new RestError(401, "Autenticação necessária.");
@@ -512,7 +527,7 @@ storageRouter.delete("/object/:bucket/*", async (req, res) => {
 });
 
 /** Gestão de buckets — restrita a service_role, como no comportamento atual. */
-storageRouter.post("/bucket", async (req, res) => {
+storageRouter.post("/bucket", jsonBody, async (req, res) => {
   const auth = resolveAuth(req);
   if (!isServiceRole(auth)) {
     throw new RestError(403, "Apenas service_role pode criar buckets.");
