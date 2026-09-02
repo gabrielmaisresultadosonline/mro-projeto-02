@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { storageAssetUrl } from '@/lib/assetUrl';
 import { X, Bell, Clock } from 'lucide-react';
 
 interface Announcement {
