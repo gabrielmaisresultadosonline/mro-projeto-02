@@ -49,8 +49,8 @@ function storageWriteError(error: unknown, bucket: string, name: string): RestEr
   return new RestError(
     507,
     "Não foi possível gravar o arquivo no armazenamento local.",
+    `Verifique espaço e permissões de ${env.storage.root}. Erro: ${code}.`,
     code,
-    `Verifique espaço e permissões de ${env.storage.root}.`,
   );
 }
 
