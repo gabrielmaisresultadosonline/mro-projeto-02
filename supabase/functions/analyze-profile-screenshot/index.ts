@@ -252,6 +252,7 @@ Depois gere uma análise profissional curta baseada no que aparece no print.
 Se esta imagem NÃO for um print de perfil do Instagram, retorne {"not_instagram": true}.`;
 
     let content: string | undefined;
+    let aiErrorMessage = 'A IA não conseguiu analisar o print agora. Tente novamente em alguns segundos.';
     try {
       if (credential.provider === 'google') {
         const image = image_base64
@@ -263,16 +264,43 @@ Se esta imagem NÃO for um print de perfil do Instagram, retorne {"not_instagram
         const imageUrl = image_base64
           ? `data:${content_type || 'image/jpeg'};base64,${image_base64}`
           : screenshot_url!;
-        content = await callGateway(credential.key, systemPrompt, userPrompt, imageUrl);
+
+        if (credential.provider === 'openai') {
+          content = await callOpenAICompatible({
+            baseUrl: 'https://api.openai.com/v1',
+            apiKey: credential.key,
+            model: 'gpt-4o-mini',
+            systemPrompt,
+            userPrompt,
+            imageUrl,
+            label: 'openai',
+          });
+        } else if (credential.provider === 'deepseek') {
+          aiErrorMessage =
+            'O token DeepSeek salvo no /admin não conseguiu ler a imagem. Salve um token do ChatGPT (chave "openai") para a leitura de prints.';
+          content = await callOpenAICompatible({
+            baseUrl: 'https://api.deepseek.com/v1',
+            apiKey: credential.key,
+            model: 'deepseek-chat',
+            systemPrompt,
+            userPrompt,
+            imageUrl,
+            label: 'deepseek',
+          });
+        } else {
+          content = await callGateway(credential.key, systemPrompt, userPrompt, imageUrl);
+        }
       }
     } catch (aiError) {
       console.error('❌ Falha na chamada de IA:', (aiError as Error).message);
       return Response.json({
         success: false,
         error: 'ai_request_failed',
-        message: 'A IA não conseguiu analisar o print agora. Tente novamente em alguns segundos.',
+        message: aiErrorMessage,
+        detail: (aiError as Error).message.slice(0, 300),
       }, { headers: corsHeaders });
     }
+
 
     const jsonMatch = content?.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
