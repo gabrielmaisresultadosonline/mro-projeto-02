@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Users, X, ChevronRight, Loader2, Camera, Instagram } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { storageAssetUrl } from '@/lib/assetUrl';
 
 interface ActiveClient {
   username: string;
@@ -143,9 +144,10 @@ export default function ActiveClientsSection({
     }
 
     // For cached images, append timestamp to bypass browser cache issues
-    const imgSrc = isCached 
-      ? `${client.profilePicture}?t=${Date.now() % 86400000}` // Cache bust daily
-      : client.profilePicture;
+    const normalizedPicture = storageAssetUrl(client.profilePicture);
+    const imgSrc = isCached
+      ? `${normalizedPicture}?t=${Date.now() % 86400000}` // Cache bust daily
+      : normalizedPicture;
 
     return (
       <img

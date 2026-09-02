@@ -232,8 +232,9 @@ fi
 # ---------- 5. Diretórios de upload ----------
 step "Preparando o diretório de uploads"
 STORAGE_DIR="${STORAGE_ROOT:-/var/www/uploads}"
-mkdir -p "$STORAGE_DIR"
-chmod 750 "$STORAGE_DIR"
+sudo mkdir -p "$STORAGE_DIR"
+sudo chown -R "$(id -u):$(id -g)" "$STORAGE_DIR"
+sudo chmod -R u+rwX,go+rX "$STORAGE_DIR"
 ok "Uploads em $STORAGE_DIR ($(du -sh "$STORAGE_DIR" 2>/dev/null | cut -f1) usados)."
 
 # ---------- 6. Frontend ----------

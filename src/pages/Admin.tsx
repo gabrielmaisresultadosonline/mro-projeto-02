@@ -67,6 +67,7 @@ import {
   SidebarTrigger
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
+import { storageAssetUrl } from '@/lib/assetUrl';
 
 const PostsComIAAdmin = lazy(() => import('@/pages/PostsComIAAdmin'));
 
@@ -503,7 +504,7 @@ const Admin = () => {
                         <div className="flex items-start gap-6">
                           {profileData.profile.profilePicUrl && !profileData.profile.profilePicUrl.includes('dicebear') ? (
                             <img 
-                              src={profileData.profile.profilePicUrl}
+                              src={storageAssetUrl(profileData.profile.profilePicUrl)}
                               alt={profileData.profile.username}
                               className="w-24 h-24 rounded-full object-cover border-2 border-primary"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -686,7 +687,7 @@ const Admin = () => {
                           {profileData.creatives.map((creative) => (
                             <div key={creative.id} className="relative aspect-square rounded-lg overflow-hidden group">
                               <img 
-                                src={creative.imageUrl} 
+                                src={storageAssetUrl(creative.imageUrl)} 
                                 alt={creative.headline}
                                 className="w-full h-full object-cover"
                               />
@@ -715,7 +716,7 @@ const Admin = () => {
                       <div className="flex items-start gap-6">
                         {selectedSyncedProfile.profilePicUrl && !selectedSyncedProfile.profilePicUrl.includes('dicebear') ? (
                           <img 
-                            src={selectedSyncedProfile.profilePicUrl}
+                            src={storageAssetUrl(selectedSyncedProfile.profilePicUrl)}
                             alt={selectedSyncedProfile.username}
                             className={`w-24 h-24 rounded-full object-cover border-2 ${
                               selectedSyncedProfile.isConnectedToDashboard ? 'border-green-500' : 'border-yellow-500'
@@ -860,7 +861,7 @@ const Admin = () => {
                           >
                             {profile.profilePicUrl && !profile.profilePicUrl.includes('dicebear') ? (
                               <img 
-                                src={profile.profilePicUrl}
+                                src={storageAssetUrl(profile.profilePicUrl)}
                                 alt={profile.username}
                                 className={`w-16 h-16 rounded-full object-cover border-2 ${
                                   profile.isBlocked ? 'border-red-500 grayscale' :
