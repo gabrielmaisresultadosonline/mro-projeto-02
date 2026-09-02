@@ -356,7 +356,12 @@ storageRouter.get("/object/:bucket/*", async (req, res) => {
   const name = objectPathFromRequest(req);
   const auth = resolveAuth(req);
 
-  if (auth.role === "anon" && !canManageStorage(req) && !(await isPublicBucket(bucket))) {
+  if (
+    auth.role === "anon" &&
+    !canManageStorage(req) &&
+    !isPublicConfigObject(bucket, name) &&
+    !(await isPublicBucket(bucket))
+  ) {
     throw new RestError(401, "Autenticação necessária.");
   }
   await streamFile(bucket, name, req, res);
