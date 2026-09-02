@@ -283,7 +283,7 @@ const AnnouncementPopup = ({ onComplete, targetArea }: AnnouncementPopupProps) =
 
           {currentAnnouncement.thumbnailUrl && (
             <img 
-              src={currentAnnouncement.thumbnailUrl} 
+              src={storageAssetUrl(currentAnnouncement.thumbnailUrl)} 
               alt="" 
               className="w-full rounded-lg object-contain max-h-80"
               onError={(e) => e.currentTarget.style.display = 'none'}
