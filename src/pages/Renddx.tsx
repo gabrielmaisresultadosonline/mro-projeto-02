@@ -387,7 +387,7 @@ const Renddx = () => {
               <div className="mt-8 flex flex-col items-center gap-4">
                 <div className="flex flex-col items-center">
                   <span className="text-zinc-400 text-sm uppercase font-bold tracking-widest">30 DIAS DE ACESSO COM SUPORTE INCLUSO</span>
-                  <span className="text-zinc-500 text-base font-bold line-through">De R$97</span>
+                  <span className="text-zinc-500 text-base font-bold line-through">De R$147</span>
                   <div className="flex items-baseline gap-1">
                     <span className="text-2xl font-bold text-green-500">R$</span>
                     <span className="text-6xl font-black text-green-500">67</span>
@@ -469,7 +469,7 @@ const Renddx = () => {
           <h3 className="text-2xl font-bold mb-4">ACESSO COMPLETO AO MRO</h3>
           <div className="text-zinc-400 text-sm font-bold mb-2 uppercase tracking-widest">Plano 30 Dias</div>
           <div className="flex flex-col items-center mb-2">
-            <span className="text-zinc-500 text-sm line-through">De R$97</span>
+            <span className="text-zinc-500 text-sm line-through">De R$147</span>
             <div className="text-5xl font-black text-green-400">R$67</div>
           </div>
           <p className="text-zinc-400 mb-6">30 dias de acesso • suporte já incluso</p>
